@@ -10,11 +10,15 @@ interface ChatWindowProps {
   chat: Chat;
   isTyping: boolean;
   onSend: (text: string, attachment?: Attachment) => void;
+  onFollowUp: (prompt: string) => void;
+  onInterest: (productId: number, name: string) => void;
   onOpenShop: () => void;
   onOpenProfile: () => void;
+  onOpenHistory: () => void;
+  onLogout: () => void;
 }
 
-export function ChatWindow({ chat, isTyping, onSend, onOpenShop, onOpenProfile }: ChatWindowProps) {
+export function ChatWindow({ chat, isTyping, onSend, onFollowUp, onInterest, onOpenShop, onOpenProfile, onOpenHistory, onLogout }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isWelcome = chat.messages.length === 0;
 
@@ -29,7 +33,9 @@ export function ChatWindow({ chat, isTyping, onSend, onOpenShop, onOpenProfile }
         chat={chat}
         isTyping={isTyping}
         onOpenShop={onOpenShop}
-        onOpenProfile={onOpenProfile} />
+        onOpenProfile={onOpenProfile}
+        onOpenHistory={onOpenHistory}
+        onLogout={onLogout} />
       
 
       {isWelcome ?
@@ -43,7 +49,7 @@ export function ChatWindow({ chat, isTyping, onSend, onOpenShop, onOpenProfile }
                 Where should we begin?
               </h2>
               <p className="mt-2 text-sm text-wa-textSecondary">
-                Ask ChatGPT anything — in one private conversation.
+                Ask whatAppSeller anything — one private conversation.
               </p>
             </div>
             <MessageInput mode="welcome" onSend={onSend} />
@@ -58,7 +64,7 @@ export function ChatWindow({ chat, isTyping, onSend, onOpenShop, onOpenProfile }
                 <span>Messages are AI-generated and end-to-end delightful. Tap to learn more.</span>
               </div>
               {chat.messages.map((message) =>
-            <MessageBubble key={message.id} message={message} />
+            <MessageBubble key={message.id} message={message} onFollowUp={onFollowUp} onInterest={onInterest} />
             )}
               {isTyping && <TypingIndicator />}
             </div>

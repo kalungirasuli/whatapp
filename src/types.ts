@@ -5,6 +5,7 @@ export interface Attachment {
   url: string;
   mimeType: string;
   size: number;
+  file?: File;
 }
 
 export interface ShopRegistrationData {
@@ -43,6 +44,9 @@ export interface Message {
   attachment?: Attachment;
   timestamp: string; // "10:24"
   status?: 'sent' | 'delivered' | 'read';
+  products?: SearchSection[];
+  resultCode?: string;
+  followUp?: { type: string; topic: string; image_family: string; prompt: string };
 }
 
 export interface Chat {
@@ -53,4 +57,115 @@ export interface Chat {
   online: boolean;
   messages: Message[];
   unread?: number;
+}
+
+/* ---- API domain types ---- */
+
+export interface AuthUser {
+  id: number;
+  phone: string;
+  name: string | null;
+  role: string;
+  is_verified: boolean;
+  created_at: string;
+}
+
+export interface AuthSession {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  user: AuthUser;
+}
+
+export interface ProductImage {
+  id?: number;
+  url: string;
+  is_primary: boolean;
+}
+
+export interface ProductResult {
+  product_id: number;
+  name: string;
+  price: number;
+  currency: string;
+  category: string;
+  score: number;
+  match_label: string;
+  distance_km?: number | null;
+  merchant?: {
+    id: number;
+    business_name: string;
+    phone_number: string;
+    category: string;
+    location_lat?: number | null;
+    location_lng?: number | null;
+  } | null;
+  images: ProductImage[];
+}
+
+export interface SearchSection {
+  label: string;
+  total: number;
+  results: ProductResult[];
+}
+
+export interface FollowUp {
+  type: string;
+  topic: string;
+  image_family: string;
+  prompt: string;
+}
+
+export interface ChatReply {
+  reply_type: 'text' | 'search_results' | 'recall' | string;
+  text?: string;
+  response_text?: string;
+  result_code?: string;
+  sections?: SearchSection[];
+  follow_up?: FollowUp;
+}
+
+export interface MerchantProfile {
+  id: number;
+  phone_number: string;
+  business_name: string;
+  category: string;
+  location_lat: number | null;
+  location_lng: number | null;
+  status: string;
+  created_at: string;
+}
+
+export interface ProductItem {
+  id: number;
+  name: string;
+  brand: string | null;
+  category: string;
+  price: number;
+  currency: string;
+  stock_qty: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  images: ProductImage[];
+}
+
+export interface InterestEntry {
+  id: number;
+  status: string;
+  created_at: string;
+  product: {
+    id: number;
+    name: string;
+    price: number;
+    currency: string;
+    category: string;
+    merchant_name: string;
+    images: ProductImage[];
+  };
+}
+
+export interface HistoryEntry {
+  query: string;
+  ts: number;
 }
