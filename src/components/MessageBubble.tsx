@@ -8,9 +8,12 @@ import {
   MoreHorizontalIcon } from
 'lucide-react';
 import { Message } from '../types';
+import { ProductSection } from './ProductSection';
 
 interface MessageBubbleProps {
   message: Message;
+  onFollowUp: (prompt: string) => void;
+  onInterest: (productId: number, name: string) => void;
 }
 
 type Feedback = 'copied' | 'opened' | null;
@@ -28,7 +31,7 @@ function Ticks({ status }: {status?: Message['status'];}) {
   return <CheckIcon className="h-4 w-4 text-wa-textSecondary" aria-label="Sent" />;
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, onFollowUp, onInterest }: MessageBubbleProps) {
   const [isActive, setIsActive] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
@@ -205,6 +208,15 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         <p className="whitespace-pre-wrap px-1.5 pt-0.5 text-sm leading-relaxed text-wa-textPrimary">
             {renderText(message.text)}
           </p>
+        }
+
+        {message.products && message.products.length > 0 &&
+        <ProductSection
+            sections={message.products}
+            resultCode={message.resultCode}
+            followUp={message.followUp}
+            onFollowUp={onFollowUp}
+            onInterest={onInterest} />
         }
 
         <div className="flex items-center justify-end gap-1 px-1.5 pt-0.5">

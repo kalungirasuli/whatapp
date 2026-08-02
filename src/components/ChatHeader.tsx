@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   HistoryIcon,
+  LogOutIcon,
   MoreVerticalIcon,
   StoreIcon,
   UserRoundIcon } from
@@ -12,15 +13,18 @@ interface ChatHeaderProps {
   isTyping: boolean;
   onOpenShop: () => void;
   onOpenProfile: () => void;
+  onOpenHistory: () => void;
+  onLogout: () => void;
 }
 
 const menuItems = [
 { id: 'history', label: 'Old chats', icon: HistoryIcon },
 { id: 'shop', label: 'Open shop', icon: StoreIcon },
-{ id: 'profile', label: 'Profile', icon: UserRoundIcon }];
+{ id: 'profile', label: 'Profile', icon: UserRoundIcon },
+{ id: 'logout', label: 'Log out', icon: LogOutIcon }];
 
 
-export function ChatHeader({ chat, isTyping, onOpenShop, onOpenProfile }: ChatHeaderProps) {
+export function ChatHeader({ chat, isTyping, onOpenShop, onOpenProfile, onOpenHistory, onLogout }: ChatHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -76,6 +80,8 @@ export function ChatHeader({ chat, isTyping, onOpenShop, onOpenProfile }: ChatHe
               setIsMenuOpen(false);
               if (id === 'shop') onOpenShop();
               if (id === 'profile') onOpenProfile();
+              if (id === 'history') onOpenHistory();
+              if (id === 'logout') onLogout();
             }}
             className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-wa-textPrimary hover:bg-wa-panelAlt focus:bg-wa-panelAlt focus:outline-none">
             
