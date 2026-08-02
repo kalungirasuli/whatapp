@@ -29,7 +29,8 @@ export function MessageInput({ mode, onSend }: MessageInputProps) {
       name: file.name,
       url: URL.createObjectURL(file),
       mimeType: file.type || 'application/octet-stream',
-      size: file.size
+      size: file.size,
+      file
     });
   };
 

@@ -37,9 +37,37 @@ export function setSession(session: AuthSession): void {
 }
 
 export function clearSession(): void {
+  refreshPromise = null;
   localStorage.removeItem(ACCESS_KEY);
   localStorage.removeItem(REFRESH_KEY);
   localStorage.removeItem('wa_session');
+}
+
+let refreshPromise: Promise<boolean> | null = null;
+
+async function doRefresh(): Promise<boolean> {
+  const refreshToken = localStorage.getItem(REFRESH_KEY);
+  if (!refreshToken) return false;
+  try {
+    const res = await fetch(`${API_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { access_token: string };
+    localStorage.setItem(ACCESS_KEY, data.access_token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function refreshAccessToken(): Promise<boolean> {
+  refreshPromise ??= doRefresh().finally(() => {
+    refreshPromise = null;
+  });
+  return refreshPromise;
 }
 
 class ApiError extends Error {
@@ -55,6 +83,14 @@ class ApiError extends Error {
 async function request<T>(
   path: string,
   options: { method?: string; json?: unknown; form?: FormData; params?: Record<string, string | number | undefined> } = {},
+): Promise<T> {
+  return requestInternal<T>(path, options, true);
+}
+
+async function requestInternal<T>(
+  path: string,
+  options: { method?: string; json?: unknown; form?: FormData; params?: Record<string, string | number | undefined> } = {},
+  allowRetry: boolean,
 ): Promise<T> {
   const url = new URL(path, API_URL);
   if (options.params) {
@@ -90,6 +126,11 @@ async function request<T>(
       detail = (data as { detail?: unknown }).detail ?? data;
     } catch {
       /* ignore */
+    }
+    if (res.status === 401 && allowRetry) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) return requestInternal<T>(path, options, false);
+      clearSession();
     }
     throw new ApiError(res.status, detail);
   }

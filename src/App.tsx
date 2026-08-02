@@ -40,7 +40,7 @@ import {
 export function App() {
   const [session, setSession] = useState<AuthSession | null>(getSession());
   const [user, setUser] = useState<AuthUser | null>(session?.user ?? null);
-  const [chat, setChat] = useState<Chat>({ ...initialChat, name: 'whatAppSeller' });
+  const [chat, setChat] = useState<Chat>({ ...initialChat, name: 'Lisa' });
   const [isTyping, setIsTyping] = useState(false);
   const [profile, setProfile] = useState<ProfileData>({
     displayName: session?.user?.name ?? 'You',
@@ -111,7 +111,7 @@ export function App() {
     setProducts([]);
     setInterests([]);
     setHistory([]);
-    setChat({ ...initialChat, name: 'whatAppSeller' });
+    setChat({ ...initialChat, name: 'Lisa' });
     setIsShopManagerOpen(false);
     setIsShopFormOpen(false);
     setIsProfileOpen(false);

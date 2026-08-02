@@ -49,7 +49,7 @@ export function ChatWindow({ chat, isTyping, onSend, onFollowUp, onInterest, onO
                 Where should we begin?
               </h2>
               <p className="mt-2 text-sm text-wa-textSecondary">
-                Ask whatAppSeller anything — one private conversation.
+                Ask Lisa anything — one private conversation.
               </p>
             </div>
             <MessageInput mode="welcome" onSend={onSend} />
