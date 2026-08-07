@@ -150,7 +150,7 @@ export function MessageBubble({ message, onFollowUp, onInterest }: MessageBubble
   return (
     <div
       ref={messageRef}
-      className={`group flex items-start gap-1 px-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
+      className={`group flex items-start message-enter gap-1 px-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
       
       {isUser && isActive && actionMenu}
       <div
@@ -168,20 +168,22 @@ export function MessageBubble({ message, onFollowUp, onInterest }: MessageBubble
           } />
         
 
-        {message.imageUrl &&
+        {message.imageUrl ?
         <figure className="overflow-hidden rounded-md">
             <img
             src={message.imageUrl}
             alt={message.imageCaption ?? 'Shared image'}
             className="max-h-80 w-full rounded-md object-cover"
             loading="lazy" />
-          
             {message.imageCaption &&
           <figcaption className="px-1.5 pt-1.5 text-sm text-wa-textPrimary">
                 {renderText(message.imageCaption)}
               </figcaption>
           }
-          </figure>
+          </figure> : message.imageCaption ?
+        <div className="mx-1.5 my-1 flex items-center gap-2 rounded-lg bg-black/[0.04] px-3 py-2 text-sm text-wa-textSecondary">
+            📷 {message.imageCaption}
+          </div> : null
         }
 
         {message.attachment &&

@@ -13,6 +13,7 @@ interface SidebarProps {
   chats: Chat[];
   activeChatId: string;
   onSelectChat: (id: string) => void;
+  onNewChat: () => void;
 }
 
 function lastMessagePreview(chat: Chat): string {
@@ -22,7 +23,7 @@ function lastMessagePreview(chat: Chat): string {
   return last.text ?? '';
 }
 
-export function Sidebar({ chats, activeChatId, onSelectChat }: SidebarProps) {
+export function Sidebar({ chats, activeChatId, onSelectChat, onNewChat }: SidebarProps) {
   const [query, setQuery] = useState('');
 
   const filtered = chats.filter((c) =>
@@ -53,6 +54,7 @@ export function Sidebar({ chats, activeChatId, onSelectChat }: SidebarProps) {
           </button>
           <button
             aria-label="New chat"
+            onClick={onNewChat}
             className="rounded-full p-2 hover:bg-black/5">
             
             <MessageSquarePlusIcon className="h-5 w-5" />

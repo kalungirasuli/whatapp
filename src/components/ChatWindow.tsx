@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { LockIcon, SparklesIcon } from 'lucide-react';
+import { LockIcon, SparklesIcon, CameraIcon, ShoppingBagIcon, CarIcon, SmartphoneIcon } from 'lucide-react';
 import { Attachment, Chat } from '../types';
 import { ChatHeader } from './ChatHeader';
 import { MessageBubble } from './MessageBubble';
@@ -17,6 +17,13 @@ interface ChatWindowProps {
   onOpenHistory: () => void;
   onLogout: () => void;
 }
+
+const QUICK_ACTIONS = [
+  { icon: CarIcon, label: 'Find a car', prompt: 'I want to buy a car' },
+  { icon: SmartphoneIcon, label: 'Latest phones', prompt: 'Show me the latest phones' },
+  { icon: ShoppingBagIcon, label: 'Browse shoes', prompt: 'I need new shoes' },
+  { icon: CameraIcon, label: 'Upload a photo', prompt: '' },
+];
 
 export function ChatWindow({ chat, isTyping, onSend, onFollowUp, onInterest, onOpenShop, onOpenProfile, onOpenHistory, onLogout }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -51,6 +58,18 @@ export function ChatWindow({ chat, isTyping, onSend, onFollowUp, onInterest, onO
               <p className="mt-2 text-sm text-wa-textSecondary">
                 Ask Lisa anything — one private conversation.
               </p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              {QUICK_ACTIONS.map(({ icon: Icon, label, prompt }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => prompt && onSend(prompt)}
+                  className="flex items-center gap-2 rounded-full border border-wa-border bg-wa-panel px-4 py-2 text-sm text-wa-textPrimary shadow-sm transition-colors hover:bg-wa-panelAlt hover:border-wa-header focus:outline-none focus:ring-2 focus:ring-wa-green">
+                  <Icon className="h-4 w-4 text-wa-header" />
+                  {label}
+                </button>
+              ))}
             </div>
             <MessageInput mode="welcome" onSend={onSend} />
           </div>

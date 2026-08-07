@@ -117,12 +117,29 @@ export interface FollowUp {
 }
 
 export interface ChatReply {
-  reply_type: 'text' | 'search_results' | 'recall' | string;
+  reply_type: 'conversation' | 'text' | 'search_results' | 'recall' | string;
   text?: string;
   response_text?: string;
   result_code?: string;
+  messages?: ChatMessage[];
   sections?: SearchSection[];
   follow_up?: FollowUp;
+}
+
+export interface ChatMessage {
+  type: 'text' | 'search_results';
+  text?: string;
+  label?: string;
+  total?: number;
+  results?: ProductResult[];
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  avatar: string;
+  updated_at: string;
+  last_message: string;
 }
 
 export interface MerchantProfile {

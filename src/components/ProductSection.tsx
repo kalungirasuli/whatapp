@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowRightIcon, BoxIcon, CopyIcon, MapPinIcon } from 'lucide-react';
+import { ArrowRightIcon, BoxIcon, CopyIcon, MapPinIcon, StarIcon } from 'lucide-react';
 import { ProductResult, SearchSection } from '../types';
+import { Fragment } from 'react';
 
 interface ProductSectionProps {
   sections: SearchSection[];
@@ -24,23 +25,61 @@ export function ProductSection({ sections, resultCode, followUp, onFollowUp, onI
     window.setTimeout(() => setCopied(false), 1600);
   };
 
+  const partition = (results: ProductResult[]) => {
+    const top = results.filter((r) => r.score >= 0.5);
+    const related = results.filter((r) => r.score >= 0.3 && r.score < 0.5);
+    const loose = results.filter((r) => r.score < 0.3);
+    return { top, related, loose };
+  };
+
   return (
     <div className="space-y-3 px-1.5 pt-1">
-      {sections.map((section) => (
-        <section key={section.label}>
-          <div className="mb-1.5 flex items-center gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-wa-teal">{section.label}</p>
-            <span className="rounded-full bg-wa-panelAlt px-1.5 py-0.5 text-[10px] text-wa-textSecondary">
-              {section.total}
-            </span>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {section.results.map((result) => (
-              <ProductCard key={result.product_id} result={result} onInterest={onInterest} />
-            ))}
-          </div>
-        </section>
-      ))}
+      {sections.map((section) => {
+        const { top, related, loose } = partition(section.results);
+        const hasTop = top.length > 0;
+        const hasRelated = related.length > 0;
+        const onlyLoose = !hasTop && !hasRelated && loose.length > 0;
+
+        return (
+          <section key={section.label} className="space-y-2">
+            {onlyLoose ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-medium text-wa-textSecondary">
+                  No exact match found, but you may like these:
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {loose.slice(0, 4).map((result) => (
+                    <ProductCard key={result.product_id} result={result} onInterest={onInterest} />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                {hasTop && (
+                  <div>
+                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-wa-green">
+                      Closest match
+                    </p>
+                    <ClosestMatchCard result={top[0]} onInterest={onInterest} />
+                  </div>
+                )}
+                {hasRelated && (
+                  <div>
+                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-wa-textSecondary">
+                      Related items
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {(hasTop ? [...related, ...top.slice(1)] : related).map((result) => (
+                        <ProductCard key={result.product_id} result={result} onInterest={onInterest} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        );
+      })}
 
       {resultCode && (
         <button
@@ -75,27 +114,66 @@ export function ProductSection({ sections, resultCode, followUp, onFollowUp, onI
   );
 }
 
+function ClosestMatchCard({ result, onInterest }: { result: ProductResult; onInterest: (id: number, name: string) => void }) {
+  const imageUrl = result.images.find((img) => img.is_primary)?.url ?? result.images[0]?.url;
+  const price = formatPrice(result.price, result.currency);
+
+  return (
+    <article className="overflow-hidden rounded-xl border-2 border-wa-green bg-white shadow-md">
+      {imageUrl ? (
+        <img src={imageUrl} alt={result.name} loading="lazy" className="h-44 w-full object-cover" />
+      ) : (
+        <div className="flex h-44 w-full items-center justify-center bg-wa-header/10 text-wa-header">
+          <BoxIcon className="h-10 w-10" />
+        </div>
+      )}
+      <div className="p-3">
+        <h3 className="text-base font-semibold text-wa-textPrimary">{result.name}</h3>
+        <p className="text-sm text-wa-textSecondary mt-0.5">
+          {result.merchant?.business_name ?? result.category}
+        </p>
+        <p className="text-lg font-bold text-wa-header mt-1">{price}</p>
+        <div className="mt-2 flex items-center gap-2 flex-wrap">
+          <span className="rounded-full bg-[#e7fce3] px-2 py-0.5 text-xs font-medium text-wa-tealDark">
+            <StarIcon className="mr-1 inline h-3 w-3" />
+            Closest match
+          </span>
+          {typeof result.distance_km === 'number' && (
+            <span className="flex items-center gap-0.5 text-xs text-wa-textSecondary">
+              <MapPinIcon className="h-3 w-3" /> {formatDistance(result.distance_km)}
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => onInterest(result.product_id, result.name)}
+          className="mt-3 w-full rounded-lg bg-wa-green px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1ebd53] focus:outline-none focus:ring-2 focus:ring-wa-green focus:ring-offset-2">
+          I&apos;m interested
+        </button>
+      </div>
+    </article>
+  );
+}
+
 function ProductCard({ result, onInterest }: { result: ProductResult; onInterest: (id: number, name: string) => void }) {
   const imageUrl = result.images.find((img) => img.is_primary)?.url ?? result.images[0]?.url;
   const price = formatPrice(result.price, result.currency);
 
   return (
-    <article className="flex overflow-hidden rounded-xl border border-wa-border bg-wa-panel">
+    <article className="flex flex-col overflow-hidden rounded-xl border border-wa-border bg-wa-panel">
       {imageUrl ? (
-        <img src={imageUrl} alt={result.name} loading="lazy" className="h-20 w-20 shrink-0 object-cover" />
+        <img src={imageUrl} alt={result.name} loading="lazy" className="h-32 w-full object-cover" />
       ) : (
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center bg-wa-header/10 text-wa-header">
-          <BoxIcon className="h-6 w-6" />
+        <div className="flex h-32 w-full items-center justify-center bg-wa-header/10 text-wa-header">
+          <BoxIcon className="h-8 w-8" />
         </div>
       )}
-      <div className="flex min-w-0 flex-1 flex-col p-2.5">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="min-w-0 truncate text-sm font-medium text-wa-textPrimary">{result.name}</h3>
-          <span className="shrink-0 text-sm font-semibold text-wa-header">{price}</span>
-        </div>
-        <p className="mt-0.5 truncate text-xs text-wa-textSecondary">
+      <div className="flex flex-col p-3">
+        <h3 className="text-sm font-semibold text-wa-textPrimary leading-snug">{result.name}</h3>
+        <p className="mt-0.5 text-xs text-wa-textSecondary">
           {result.merchant?.business_name ?? result.category}
         </p>
+        <p className="mt-1 text-sm font-bold text-wa-header">{price}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           {result.match_label && (
             <span className="rounded-full bg-[#e7fce3] px-1.5 py-0.5 text-[10px] font-medium text-wa-tealDark">

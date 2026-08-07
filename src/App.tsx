@@ -17,7 +17,7 @@ import {
   ProductItem,
   ProfileData,
 } from './types';
-import { CURRENT_USER_AVATAR, initialChat, now } from './data';
+import { CURRENT_USER_AVATAR, now } from './data';
 import {
   clearSession,
   createProduct,
@@ -37,10 +37,32 @@ import {
   uploadProductImage,
 } from './api';
 
+const CHAT_STORAGE_KEY = 'wa_chat_messages';
+const AI_AVATAR = '/79fd36db-6d51-44a5-af73-bc63277d2b95.jpg';
+
+function saveChat(messages: Message[]) {
+  try {
+    const slim = messages.map(({ id, sender, text, imageUrl, imageCaption, products, resultCode, followUp, timestamp, status }) => ({
+      id, sender, text, imageCaption, products, resultCode, followUp, timestamp, status,
+      hasImage: !!imageUrl,
+    }));
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(slim));
+  } catch { /* quota exceeded, ignore */ }
+}
+
+function loadChat(): Message[] {
+  try {
+    const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as Message[];
+  } catch { return []; }
+}
+
 export function App() {
   const [session, setSession] = useState<AuthSession | null>(getSession());
   const [user, setUser] = useState<AuthUser | null>(session?.user ?? null);
-  const [chat, setChat] = useState<Chat>({ ...initialChat, name: 'Lisa' });
+  const [chat, setChat] = useState<Chat>({ id: 'main', name: 'Lisa', avatar: AI_AVATAR, about: 'Your AI shopping assistant', online: true, messages: [] });
+  const [contextLoaded, setContextLoaded] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [profile, setProfile] = useState<ProfileData>({
     displayName: session?.user?.name ?? 'You',
@@ -105,13 +127,15 @@ export function App() {
 
   const handleLogout = () => {
     clearSession();
+    localStorage.removeItem(CHAT_STORAGE_KEY);
     setSession(null);
     setUser(null);
     setMerchant(null);
     setProducts([]);
     setInterests([]);
     setHistory([]);
-    setChat({ ...initialChat, name: 'Lisa' });
+    setChat({ id: 'main', name: 'Lisa', avatar: AI_AVATAR, about: 'Your AI shopping assistant', online: true, messages: [] });
+    setContextLoaded(false);
     setIsShopManagerOpen(false);
     setIsShopFormOpen(false);
     setIsProfileOpen(false);
@@ -131,37 +155,56 @@ export function App() {
       status: 'read',
     };
 
-    setChat((current) => ({ ...current, messages: [...current.messages, userMessage] }));
+    setChat((c) => ({ ...c, messages: [...c.messages, userMessage] }));
     setIsTyping(true);
 
     try {
-      const reply = await sendChat({
-        text: text || '',
-        file: attachment?.file,
-      });
+      const reply = await sendChat({ text: text || '', file: attachment?.file });
 
-      const aiText = reply.text ?? reply.response_text;
-      const aiMessage: Message = {
-        id: `assistant-${Date.now()}`,
-        sender: 'ai',
-        text: aiText,
-        products: reply.sections,
-        resultCode: reply.result_code,
-        followUp: reply.follow_up,
-        timestamp: now(),
-      };
-      setChat((current) => ({ ...current, messages: [...current.messages, aiMessage] }));
+      if (reply.messages && reply.messages.length > 0) {
+        for (let i = 0; i < reply.messages.length; i++) {
+          const m = reply.messages[i];
+          setChat((c) => ({
+            ...c,
+            messages: [...c.messages, {
+              id: `assistant-${Date.now()}-${i}`, sender: 'ai',
+              text: m.type === 'text' ? m.text : undefined,
+              products: m.type === 'search_results' ? [{ label: m.label || '', total: m.total || 0, results: m.results || [] }] : undefined,
+              resultCode: i === reply.messages.length - 1 ? reply.result_code : undefined,
+              followUp: i === reply.messages.length - 1 ? reply.follow_up : undefined,
+              timestamp: now(),
+            }],
+          }));
+        }
+      } else {
+        setChat((c) => ({
+          ...c,
+          messages: [...c.messages, {
+            id: `assistant-${Date.now()}`, sender: 'ai',
+            text: reply.text ?? reply.response_text,
+            products: reply.sections,
+            resultCode: reply.result_code,
+            followUp: reply.follow_up,
+            timestamp: now(),
+          }],
+        }));
+      }
     } catch (error) {
-      const errorMessage: Message = {
-        id: `assistant-error-${Date.now()}`,
-        sender: 'ai',
-        text: `Sorry, that request failed: ${error instanceof Error ? error.message : 'unknown error'}`,
-        timestamp: now(),
-      };
-      setChat((current) => ({ ...current, messages: [...current.messages, errorMessage] }));
+      setChat((c) => ({
+        ...c,
+        messages: [...c.messages, {
+          id: `error-${Date.now()}`, sender: 'ai',
+          text: `Sorry: ${error instanceof Error ? error.message : 'unknown error'}`,
+          timestamp: now(),
+        }],
+      }));
     } finally {
       setIsTyping(false);
     }
+  };
+
+  const addUserMessage = (msg: Message) => {
+    setChat((c) => ({ ...c, messages: [...c.messages, msg] }));
   };
 
   const handleFollowUp = (prompt: string) => {
@@ -171,17 +214,13 @@ export function App() {
   const handleInterest = async (productId: number, name: string) => {
     try {
       await expressInterest(productId);
-      const interestMessage: Message = {
-        id: `user-interest-${Date.now()}`,
-        sender: 'user',
+      addUserMessage({
+        id: `user-interest-${Date.now()}`, sender: 'user',
         text: `I'm interested in "${name}". Could you help me with it?`,
-        timestamp: now(),
-        status: 'read',
-      };
-      setChat((current) => ({ ...current, messages: [...current.messages, interestMessage] }));
+        timestamp: now(), status: 'read',
+      });
       showToast('Interest sent to the seller');
-      const updated = await getMyInterests();
-      setInterests(updated);
+      setInterests(await getMyInterests());
     } catch (error) {
       showToast(`Could not send interest: ${error instanceof Error ? error.message : 'error'}`);
     }
@@ -293,6 +332,47 @@ export function App() {
   useEffect(() => {
     if (session) void refreshUser();
   }, [session, refreshUser]);
+
+  useEffect(() => {
+    if (session && !contextLoaded) {
+      const local = loadChat();
+      if (local.length > 0) {
+        setChat((c) => ({ ...c, messages: local }));
+        setContextLoaded(true);
+      } else {
+        (async () => {
+          try {
+            const token = getSession()?.access_token;
+            if (!token) return;
+            const res = await fetch(`${API_URL}/api/chat/conversations/messages`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) return;
+            const data = await res.json();
+            const msgs: Message[] = (data.messages || []).map((m: Record<string, unknown>) => ({
+              id: (m.id as string) || `hist-${m.ts}`,
+              sender: (m.sender as Message['sender']) || 'ai',
+              text: (m.text as string) || (m.response_text as string) || undefined,
+              imageUrl: undefined,
+              imageCaption: typeof m.image_description === 'string' ? m.image_description : undefined,
+              products: (m as Record<string, unknown>).sections as Message['products'],
+              resultCode: (m.result_code as string) || undefined,
+              timestamp: typeof m.ts === 'string' ? m.ts.slice(11, 16) : '',
+            }));
+            if (msgs.length > 0) {
+              setChat((c) => ({ ...c, messages: msgs }));
+              saveChat(msgs);
+            }
+          } catch { /* ignore */ }
+        })();
+        setContextLoaded(true);
+      }
+    }
+  }, [session, contextLoaded]);
+
+  useEffect(() => {
+    if (chat.messages.length > 0) saveChat(chat.messages);
+  }, [chat.messages]);
 
   if (!session || !user) {
     return (

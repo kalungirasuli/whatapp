@@ -2,6 +2,7 @@ import {
   AuthSession,
   AuthUser,
   ChatReply,
+  Conversation,
   HistoryEntry,
   InterestEntry,
   MerchantProfile,
@@ -278,4 +279,10 @@ export async function lookupResultCode(code: string): Promise<{
   created_at: string;
 }> {
   return request(`/api/result-codes/${encodeURIComponent(code)}`);
+}
+
+/* ---- Conversations ---- */
+
+export async function getConversations(): Promise<{ conversations: Conversation[] }> {
+  return request('/api/chat/conversations');
 }
