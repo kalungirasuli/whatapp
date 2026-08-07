@@ -24,6 +24,7 @@ import {
   deleteProduct,
   expressInterest,
   getMe,
+  getChatMessages,
   getMyHistory,
   getMyInterests,
   getMyProducts,
@@ -426,13 +427,7 @@ export function App() {
       } else {
         (async () => {
           try {
-            const token = getSession()?.access_token;
-            if (!token) return;
-            const res = await fetch(`${API_URL}/api/chat/conversations/messages`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) return;
-            const data = await res.json();
+            const data = await getChatMessages();
             const msgs: Message[] = (data.messages || []).map((m: Record<string, unknown>) => ({
               id: (m.id as string) || `hist-${m.ts}`,
               sender: (m.sender as Message['sender']) || 'ai',

@@ -197,6 +197,10 @@ export async function expressInterest(productId: number, resultCode?: string): P
   });
 }
 
+export async function getChatMessages(): Promise<{ messages: Array<Record<string, unknown>> }> {
+  return request('/api/chat/conversations/messages');
+}
+
 export function getGuestId(): string {
   const existing = localStorage.getItem(GUEST_KEY);
   if (existing) return existing;
