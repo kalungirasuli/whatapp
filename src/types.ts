@@ -121,6 +121,7 @@ export interface ChatReply {
   text?: string;
   response_text?: string;
   result_code?: string;
+  image_urls?: string[];
   messages?: ChatMessage[];
   sections?: SearchSection[];
   follow_up?: FollowUp;
@@ -171,6 +172,8 @@ export interface InterestEntry {
   id: number;
   status: string;
   created_at: string;
+  result_code?: string | null;
+  search_images?: ProductImage[];
   product: {
     id: number;
     name: string;
@@ -180,6 +183,32 @@ export interface InterestEntry {
     merchant_name: string;
     images: ProductImage[];
   };
+}
+
+export interface InterestResponse {
+  id: number;
+  status: string;
+  created_at: string;
+  result_code?: string | null;
+  search_images: ProductImage[];
+  product: {
+    id: number;
+    name: string;
+    price: number;
+    currency: string;
+    category: string;
+    brand: string | null;
+    stock_qty: number;
+    images: ProductImage[];
+  };
+  merchant: {
+    id: number;
+    business_name: string;
+    phone_number: string;
+    category: string;
+    location_lat?: number | null;
+    location_lng?: number | null;
+  } | null;
 }
 
 export interface HistoryEntry {

@@ -5,6 +5,7 @@ import {
   Conversation,
   HistoryEntry,
   InterestEntry,
+  InterestResponse,
   MerchantProfile,
   ProductItem,
 } from './types';
@@ -12,6 +13,7 @@ import {
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8002';
 const ACCESS_KEY = 'wa_access_token';
 const REFRESH_KEY = 'wa_refresh_token';
+const GUEST_KEY = 'wa_guest_id';
 
 export function getApiUrl(): string {
   return API_URL;
@@ -113,6 +115,7 @@ async function requestInternal<T>(
 
   const token = getAccessToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
+  headers['X-Guest-ID'] = getGuestId();
 
   const res = await fetch(url.toString(), {
     method: options.method ?? 'GET',
@@ -187,8 +190,19 @@ export async function getMyInterests(): Promise<InterestEntry[]> {
   return request('/api/clients/me/interests');
 }
 
-export async function expressInterest(productId: number): Promise<{ id: number; status: string }> {
-  return request(`/api/clients/me/interests/${productId}`, { method: 'POST' });
+export async function expressInterest(productId: number, resultCode?: string): Promise<InterestResponse> {
+  return request(`/api/clients/me/interests/${productId}`, {
+    method: 'POST',
+    params: { result_code: resultCode },
+  });
+}
+
+export function getGuestId(): string {
+  const existing = localStorage.getItem(GUEST_KEY);
+  if (existing) return existing;
+  const id = `g${crypto.randomUUID().replace(/-/g, '').slice(0, 18)}`;
+  localStorage.setItem(GUEST_KEY, id);
+  return id;
 }
 
 export async function removeInterest(productId: number): Promise<{ message: string }> {

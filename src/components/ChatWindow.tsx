@@ -9,9 +9,11 @@ import { TypingIndicator } from './TypingIndicator';
 interface ChatWindowProps {
   chat: Chat;
   isTyping: boolean;
+  isAuthenticated: boolean;
+  hasShop: boolean;
   onSend: (text: string, attachment?: Attachment) => void;
   onFollowUp: (prompt: string) => void;
-  onInterest: (productId: number, name: string) => void;
+  onInterest: (productId: number, name: string, resultCode?: string) => void;
   onOpenShop: () => void;
   onOpenProfile: () => void;
   onOpenHistory: () => void;
@@ -25,7 +27,7 @@ const QUICK_ACTIONS = [
   { icon: CameraIcon, label: 'Upload a photo', prompt: '' },
 ];
 
-export function ChatWindow({ chat, isTyping, onSend, onFollowUp, onInterest, onOpenShop, onOpenProfile, onOpenHistory, onLogout }: ChatWindowProps) {
+export function ChatWindow({ chat, isTyping, isAuthenticated, hasShop, onSend, onFollowUp, onInterest, onOpenShop, onOpenProfile, onOpenHistory, onLogout }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isWelcome = chat.messages.length === 0;
 
@@ -39,6 +41,8 @@ export function ChatWindow({ chat, isTyping, onSend, onFollowUp, onInterest, onO
       <ChatHeader
         chat={chat}
         isTyping={isTyping}
+        isAuthenticated={isAuthenticated}
+        hasShop={hasShop}
         onOpenShop={onOpenShop}
         onOpenProfile={onOpenProfile}
         onOpenHistory={onOpenHistory}

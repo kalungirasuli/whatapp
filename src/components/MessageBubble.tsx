@@ -13,7 +13,7 @@ import { ProductSection } from './ProductSection';
 interface MessageBubbleProps {
   message: Message;
   onFollowUp: (prompt: string) => void;
-  onInterest: (productId: number, name: string) => void;
+  onInterest: (productId: number, name: string, resultCode?: string) => void;
 }
 
 type Feedback = 'copied' | 'opened' | null;
@@ -173,7 +173,7 @@ export function MessageBubble({ message, onFollowUp, onInterest }: MessageBubble
             <img
             src={message.imageUrl}
             alt={message.imageCaption ?? 'Shared image'}
-            className="max-h-80 w-full rounded-md object-cover"
+            className="max-h-80 w-full rounded-md object-contain bg-gray-50"
             loading="lazy" />
             {message.imageCaption &&
           <figcaption className="px-1.5 pt-1.5 text-sm text-wa-textPrimary">

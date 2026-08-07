@@ -43,7 +43,7 @@ const AI_AVATAR = '/79fd36db-6d51-44a5-af73-bc63277d2b95.jpg';
 function saveChat(messages: Message[]) {
   try {
     const slim = messages.map(({ id, sender, text, imageUrl, imageCaption, products, resultCode, followUp, timestamp, status }) => ({
-      id, sender, text, imageCaption, products, resultCode, followUp, timestamp, status,
+      id, sender, text, imageUrl: imageUrl?.startsWith('http') ? imageUrl : undefined, imageCaption, products, resultCode, followUp, timestamp, status,
       hasImage: !!imageUrl,
     }));
     localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(slim));
@@ -79,6 +79,8 @@ export function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isShopFormOpen, setIsShopFormOpen] = useState(false);
   const [isShopManagerOpen, setIsShopManagerOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [pendingAccountAction, setPendingAccountAction] = useState<'shop' | 'profile' | 'history' | 'interest' | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = useCallback((message: string) => {
@@ -114,15 +116,21 @@ export function App() {
   };
 
   const handleAuthenticated = (newSession: AuthSession) => {
+    const pending = pendingAccountAction;
     persistSession(newSession);
     setSession(newSession);
     setUser(newSession.user);
+    setIsAuthOpen(false);
+    setPendingAccountAction(null);
     setProfile((current) => ({
       ...current,
       displayName: newSession.user.name ?? current.displayName,
       phoneNumber: newSession.user.phone,
     }));
     void refreshUser();
+    if (pending === 'shop') setIsShopFormOpen(true);
+    if (pending === 'profile') setIsProfileOpen(true);
+    if (pending === 'history') void openHistory();
   };
 
   const handleLogout = () => {
@@ -140,6 +148,14 @@ export function App() {
     setIsShopFormOpen(false);
     setIsProfileOpen(false);
     setIsHistoryOpen(false);
+    setIsAuthOpen(false);
+    setPendingAccountAction(null);
+  };
+
+  const requireAccount = (action: string, pending: 'shop' | 'profile' | 'history' | 'interest') => {
+    showToast(`Create an account to ${action}. Your guest chat will remain here.`);
+    setPendingAccountAction(pending);
+    setIsAuthOpen(true);
   };
 
   const handleSend = async (text: string, attachment?: Attachment) => {
@@ -161,17 +177,46 @@ export function App() {
     try {
       const reply = await sendChat({ text: text || '', file: attachment?.file });
 
+      if (reply.image_urls?.[0]) {
+        setChat((c) => ({
+          ...c,
+          messages: c.messages.map((message) =>
+            message.id === userMessage.id
+              ? { ...message, imageUrl: reply.image_urls?.[0] }
+              : message,
+          ),
+        }));
+      }
+
       if (reply.messages && reply.messages.length > 0) {
-        for (let i = 0; i < reply.messages.length; i++) {
-          const m = reply.messages[i];
+        const responseText = reply.response_text?.trim();
+        const serverMessages = reply.messages.filter(
+          (message) => !(reply.follow_up && message.text?.trim() === reply.follow_up.prompt.trim()),
+        );
+        const firstResultsIndex = serverMessages.findIndex((message) => message.type === 'search_results');
+        const messages = [...serverMessages];
+        if (responseText && !messages.some((message) => message.text?.trim() === responseText)) {
+          messages.splice(
+            firstResultsIndex >= 0 ? firstResultsIndex : messages.length,
+            0,
+            { type: 'text', text: responseText },
+          );
+        }
+        const lastResultsIndex = messages.reduce(
+          (last, message, index) => message.type === 'search_results' ? index : last,
+          -1,
+        );
+
+        for (let i = 0; i < messages.length; i++) {
+          const m = messages[i];
           setChat((c) => ({
             ...c,
             messages: [...c.messages, {
               id: `assistant-${Date.now()}-${i}`, sender: 'ai',
               text: m.type === 'text' ? m.text : undefined,
               products: m.type === 'search_results' ? [{ label: m.label || '', total: m.total || 0, results: m.results || [] }] : undefined,
-              resultCode: i === reply.messages.length - 1 ? reply.result_code : undefined,
-              followUp: i === reply.messages.length - 1 ? reply.follow_up : undefined,
+              resultCode: i === lastResultsIndex ? reply.result_code : undefined,
+              followUp: i === lastResultsIndex ? reply.follow_up : undefined,
               timestamp: now(),
             }],
           }));
@@ -211,14 +256,37 @@ export function App() {
     void handleSend(prompt);
   };
 
-  const handleInterest = async (productId: number, name: string) => {
+  const handleInterest = async (productId: number, name: string, resultCode?: string) => {
+    if (!session || !user) {
+      requireAccount('save an interest', 'interest');
+      return;
+    }
     try {
-      await expressInterest(productId);
+      const result = await expressInterest(productId, resultCode);
       addUserMessage({
         id: `user-interest-${Date.now()}`, sender: 'user',
         text: `I'm interested in "${name}". Could you help me with it?`,
         timestamp: now(), status: 'read',
       });
+      const p = result.product;
+      const m = result.merchant;
+      const price = p ? `${p.price.toLocaleString()} ${p.currency}` : 'N/A';
+      const details = [
+        p ? `*${p.name}* — ${price}` : '',
+        p?.brand ? `Brand: ${p.brand}` : '',
+        p?.category ? `Category: ${p.category}` : '',
+        p?.stock_qty != null ? `In stock: ${p.stock_qty}` : '',
+        m ? `Seller: *${m.business_name}* (${m.phone_number})` : '',
+        result.result_code ? `Reference: *${result.result_code}*` : '',
+      ].filter(Boolean).join('\n');
+      setChat((c) => ({
+        ...c,
+        messages: [...c.messages, {
+          id: `assistant-detail-${Date.now()}`, sender: 'ai',
+          text: `Here are the details:\n\n${details}`,
+          timestamp: now(),
+        }],
+      }));
       showToast('Interest sent to the seller');
       setInterests(await getMyInterests());
     } catch (error) {
@@ -246,11 +314,23 @@ export function App() {
   };
 
   const handleOpenShop = () => {
+    if (!session || !user) {
+      requireAccount('create a shop', 'shop');
+      return;
+    }
     if (merchant) {
       setIsShopManagerOpen(true);
     } else {
       setIsShopFormOpen(true);
     }
+  };
+
+  const handleOpenProfile = () => {
+    if (!session || !user) {
+      requireAccount('open your profile', 'profile');
+      return;
+    }
+    setIsProfileOpen(true);
   };
 
   const handleCreateProduct = async (product: {
@@ -310,6 +390,10 @@ export function App() {
   };
 
   const openHistory = async () => {
+    if (!session || !user) {
+      requireAccount('view old chats', 'history');
+      return;
+    }
     setIsHistoryOpen(true);
     try {
       const [interestList, historyData] = await Promise.all([getMyInterests(), getMyHistory()]);
@@ -334,7 +418,7 @@ export function App() {
   }, [session, refreshUser]);
 
   useEffect(() => {
-    if (session && !contextLoaded) {
+    if (!contextLoaded) {
       const local = loadChat();
       if (local.length > 0) {
         setChat((c) => ({ ...c, messages: local }));
@@ -353,7 +437,7 @@ export function App() {
               id: (m.id as string) || `hist-${m.ts}`,
               sender: (m.sender as Message['sender']) || 'ai',
               text: (m.text as string) || (m.response_text as string) || undefined,
-              imageUrl: undefined,
+            imageUrl: Array.isArray(m.image_urls) && typeof m.image_urls[0] === 'string' ? m.image_urls[0] : undefined,
               imageCaption: typeof m.image_description === 'string' ? m.image_description : undefined,
               products: (m as Record<string, unknown>).sections as Message['products'],
               resultCode: (m.result_code as string) || undefined,
@@ -374,14 +458,6 @@ export function App() {
     if (chat.messages.length > 0) saveChat(chat.messages);
   }, [chat.messages]);
 
-  if (!session || !user) {
-    return (
-      <main className="h-full w-full bg-wa-panelAlt">
-        <AuthGate onAuthenticated={handleAuthenticated} />
-      </main>
-    );
-  }
-
   return (
     <main className="flex h-full w-full flex-col bg-wa-panelAlt">
       <div className="hidden h-[19px] w-full shrink-0 bg-wa-header md:block" />
@@ -389,11 +465,13 @@ export function App() {
         <ChatWindow
           chat={chat}
           isTyping={isTyping}
+          isAuthenticated={Boolean(session && user)}
+          hasShop={Boolean(merchant)}
           onSend={handleSend}
           onFollowUp={handleFollowUp}
           onInterest={handleInterest}
           onOpenShop={handleOpenShop}
-          onOpenProfile={() => setIsProfileOpen(true)}
+          onOpenProfile={handleOpenProfile}
           onOpenHistory={() => void openHistory()}
           onLogout={handleLogout}
         />
@@ -437,6 +515,11 @@ export function App() {
           onDelete={(productId) => void handleDeleteProduct(productId)}
           onUploadImage={(productId, file) => void uploadProductImage(productId, file)}
         />
+      )}
+      {isAuthOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/30 p-3 backdrop-blur-sm">
+          <AuthGate onAuthenticated={handleAuthenticated} />
+        </div>
       )}
       {toastMessage && (
         <div role="status" className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-wa-textPrimary px-4 py-2.5 text-sm text-white shadow-panel">

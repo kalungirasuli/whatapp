@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { ArrowRightIcon, BoxIcon, CopyIcon, MapPinIcon, StarIcon } from 'lucide-react';
 import { ProductResult, SearchSection } from '../types';
-import { Fragment } from 'react';
 
 interface ProductSectionProps {
   sections: SearchSection[];
   resultCode?: string;
   followUp?: { type: string; topic: string; image_family: string; prompt: string };
   onFollowUp: (prompt: string) => void;
-  onInterest: (productId: number, name: string) => void;
+  onInterest: (productId: number, name: string, resultCode?: string) => void;
 }
 
 export function ProductSection({ sections, resultCode, followUp, onFollowUp, onInterest }: ProductSectionProps) {
@@ -26,56 +25,60 @@ export function ProductSection({ sections, resultCode, followUp, onFollowUp, onI
   };
 
   const partition = (results: ProductResult[]) => {
-    const top = results.filter((r) => r.score >= 0.5);
-    const related = results.filter((r) => r.score >= 0.3 && r.score < 0.5);
-    const loose = results.filter((r) => r.score < 0.3);
-    return { top, related, loose };
+    const qualified = results.filter((result) => result.score >= 0.4);
+    const belowThreshold = results.filter((result) => result.score < 0.4);
+    const allQualified = results.length > 0 && belowThreshold.length === 0;
+
+    if (allQualified) {
+      return { mode: 'all' as const, top: [], related: results };
+    }
+
+    if (qualified.length > 0) {
+      const [top, ...remainingQualified] = qualified;
+      return {
+        mode: 'split' as const,
+        top: [top],
+        related: [...remainingQualified, ...belowThreshold],
+      };
+    }
+
+    return { mode: 'related' as const, top: [], related: results };
   };
 
   return (
     <div className="space-y-3 px-1.5 pt-1">
       {sections.map((section) => {
-        const { top, related, loose } = partition(section.results);
-        const hasTop = top.length > 0;
-        const hasRelated = related.length > 0;
-        const onlyLoose = !hasTop && !hasRelated && loose.length > 0;
-
+        const { mode, top, related } = partition(section.results);
         return (
           <section key={section.label} className="space-y-2">
-            {onlyLoose ? (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-medium text-wa-textSecondary">
-                  No exact match found, but you may like these:
-                </p>
+            {mode === 'all' && related.length > 0 && (
+              <div>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {loose.slice(0, 4).map((result) => (
-                    <ProductCard key={result.product_id} result={result} onInterest={onInterest} />
+                  {related.map((result) => (
+                    <ProductCard key={result.product_id} result={result} resultCode={resultCode} onInterest={onInterest} />
                   ))}
                 </div>
               </div>
-            ) : (
-              <>
-                {hasTop && (
-                  <div>
-                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-wa-green">
-                      Closest match
-                    </p>
-                    <ClosestMatchCard result={top[0]} onInterest={onInterest} />
-                  </div>
-                )}
-                {hasRelated && (
-                  <div>
-                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-wa-textSecondary">
-                      Related items
-                    </p>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {(hasTop ? [...related, ...top.slice(1)] : related).map((result) => (
-                        <ProductCard key={result.product_id} result={result} onInterest={onInterest} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
+            )}
+            {mode === 'split' && top.length > 0 && (
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-wa-green">
+                  Closest match
+                </p>
+                <ClosestMatchCard result={top[0]} resultCode={resultCode} onInterest={onInterest} />
+              </div>
+            )}
+            {mode !== 'all' && related.length > 0 && (
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-wa-textSecondary">
+                  Related matches
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {related.map((result) => (
+                    <ProductCard key={result.product_id} result={result} resultCode={resultCode} onInterest={onInterest} />
+                  ))}
+                </div>
+              </div>
             )}
           </section>
         );
@@ -114,14 +117,14 @@ export function ProductSection({ sections, resultCode, followUp, onFollowUp, onI
   );
 }
 
-function ClosestMatchCard({ result, onInterest }: { result: ProductResult; onInterest: (id: number, name: string) => void }) {
+function ClosestMatchCard({ result, resultCode, onInterest }: { result: ProductResult; resultCode?: string; onInterest: (id: number, name: string, resultCode?: string) => void }) {
   const imageUrl = result.images.find((img) => img.is_primary)?.url ?? result.images[0]?.url;
   const price = formatPrice(result.price, result.currency);
 
   return (
     <article className="overflow-hidden rounded-xl border-2 border-wa-green bg-white shadow-md">
       {imageUrl ? (
-        <img src={imageUrl} alt={result.name} loading="lazy" className="h-44 w-full object-cover" />
+        <img src={imageUrl} alt={result.name} loading="lazy" className="max-h-80 w-full rounded-md object-contain bg-gray-50" />
       ) : (
         <div className="flex h-44 w-full items-center justify-center bg-wa-header/10 text-wa-header">
           <BoxIcon className="h-10 w-10" />
@@ -146,7 +149,7 @@ function ClosestMatchCard({ result, onInterest }: { result: ProductResult; onInt
         </div>
         <button
           type="button"
-          onClick={() => onInterest(result.product_id, result.name)}
+          onClick={() => onInterest(result.product_id, result.name, resultCode)}
           className="mt-3 w-full rounded-lg bg-wa-green px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1ebd53] focus:outline-none focus:ring-2 focus:ring-wa-green focus:ring-offset-2">
           I&apos;m interested
         </button>
@@ -155,14 +158,14 @@ function ClosestMatchCard({ result, onInterest }: { result: ProductResult; onInt
   );
 }
 
-function ProductCard({ result, onInterest }: { result: ProductResult; onInterest: (id: number, name: string) => void }) {
+function ProductCard({ result, resultCode, onInterest }: { result: ProductResult; resultCode?: string; onInterest: (id: number, name: string, resultCode?: string) => void }) {
   const imageUrl = result.images.find((img) => img.is_primary)?.url ?? result.images[0]?.url;
   const price = formatPrice(result.price, result.currency);
 
   return (
     <article className="flex flex-col overflow-hidden rounded-xl border border-wa-border bg-wa-panel">
       {imageUrl ? (
-        <img src={imageUrl} alt={result.name} loading="lazy" className="h-32 w-full object-cover" />
+        <img src={imageUrl} alt={result.name} loading="lazy" className="max-h-60 w-full rounded-md object-contain bg-gray-50" />
       ) : (
         <div className="flex h-32 w-full items-center justify-center bg-wa-header/10 text-wa-header">
           <BoxIcon className="h-8 w-8" />
@@ -190,7 +193,7 @@ function ProductCard({ result, onInterest }: { result: ProductResult; onInterest
         <div className="mt-auto pt-1.5">
           <button
             type="button"
-            onClick={() => onInterest(result.product_id, result.name)}
+            onClick={() => onInterest(result.product_id, result.name, resultCode)}
             className="text-xs font-medium text-wa-header hover:underline focus:outline-none focus:ring-2 focus:ring-wa-green">
             I&apos;m interested
           </button>

@@ -11,22 +11,28 @@ import { Chat } from '../types';
 interface ChatHeaderProps {
   chat: Chat;
   isTyping: boolean;
+  isAuthenticated: boolean;
+  hasShop: boolean;
   onOpenShop: () => void;
   onOpenProfile: () => void;
   onOpenHistory: () => void;
   onLogout: () => void;
 }
 
-const menuItems = [
-{ id: 'history', label: 'Old chats', icon: HistoryIcon },
-{ id: 'shop', label: 'Open shop', icon: StoreIcon },
-{ id: 'profile', label: 'Profile', icon: UserRoundIcon },
-{ id: 'logout', label: 'Log out', icon: LogOutIcon }];
-
-
-export function ChatHeader({ chat, isTyping, onOpenShop, onOpenProfile, onOpenHistory, onLogout }: ChatHeaderProps) {
+export function ChatHeader({ chat, isTyping, isAuthenticated, hasShop, onOpenShop, onOpenProfile, onOpenHistory, onLogout }: ChatHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuItems = isAuthenticated
+    ? [
+        { id: 'history', label: 'Old chats', icon: HistoryIcon },
+        { id: 'shop', label: hasShop ? 'Shop' : 'Create shop', icon: StoreIcon },
+        { id: 'profile', label: 'Profile', icon: UserRoundIcon },
+        { id: 'logout', label: 'Log out', icon: LogOutIcon },
+      ]
+    : [
+        { id: 'profile', label: 'Profile (Guest)', icon: UserRoundIcon },
+        { id: 'shop', label: 'Create shop', icon: StoreIcon },
+      ];
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
