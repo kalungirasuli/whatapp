@@ -140,10 +140,10 @@ export function ShopManagementModal({ shop, products, onClose, onCreate, onUpdat
 
             <div className="space-y-2">
                 {products.map((product) =>
-              <article key={product.id} className={`flex gap-3 rounded-xl border p-3 ${editingId === product.id ? 'border-wa-header bg-[#e7fce3]' : 'border-wa-border bg-wa-panel'}`}>
-                    {imageUrlFor(product) ? <img src={imageUrlFor(product)} alt={product.name} className="h-16 w-16 shrink-0 rounded-lg object-cover" /> : <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-wa-header/10 text-wa-header"><BoxIcon className="h-5 w-5" /></div>}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2"><div className="min-w-0"><h3 className="truncate text-sm font-medium text-wa-textPrimary">{product.name}</h3><p className="mt-0.5 text-sm font-semibold text-wa-header">{formatPrice(product.price, product.currency)}</p></div><span className="shrink-0 rounded-full bg-wa-panelAlt px-2 py-0.5 text-[11px] text-wa-textSecondary">{product.stock_qty} in stock</span></div>
+              <article key={product.id} className={`flex flex-col overflow-hidden rounded-xl border ${editingId === product.id ? 'border-wa-header bg-[#e7fce3]' : 'border-wa-border bg-wa-panel'}`}>
+                    {imageUrlFor(product) ? <img src={imageUrlFor(product)} alt={product.name} loading="lazy" className="max-h-44 w-full rounded-md object-contain bg-gray-50" /> : <div className="flex h-32 w-full items-center justify-center bg-wa-header/10 text-wa-header"><BoxIcon className="h-8 w-8" /></div>}
+                    <div className="min-w-0 flex-1 p-3">
+                      <div className="flex items-start justify-between gap-2"><div className="min-w-0"><h3 className="truncate text-sm font-medium text-wa-textPrimary">{product.name}</h3><p className="mt-1 text-sm font-semibold text-wa-header">{formatPrice(product.price, product.currency)}</p></div><span className="shrink-0 rounded-full bg-wa-panelAlt px-2 py-0.5 text-[11px] text-wa-textSecondary">{product.stock_qty} in stock</span></div>
                       <p className="mt-1 truncate text-xs text-wa-textSecondary">{product.category}</p>
                       <div className="mt-2 flex gap-2"><button type="button" onClick={() => editProduct(product)} className="flex items-center gap-1 text-xs font-medium text-wa-header hover:underline focus:outline-none focus:ring-2 focus:ring-wa-green"><PencilIcon className="h-3.5 w-3.5" /> Edit</button><button type="button" onClick={() => onDelete(product.id)} className="flex items-center gap-1 text-xs font-medium text-[#d94841] hover:underline focus:outline-none focus:ring-2 focus:ring-wa-green"><Trash2Icon className="h-3.5 w-3.5" /> Delete</button></div>
                     </div>
