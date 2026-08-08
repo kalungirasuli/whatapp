@@ -1,13 +1,19 @@
 import {
   AuthSession,
   AuthUser,
+  AnalyticsRecommendation,
   ChatReply,
   Conversation,
   HistoryEntry,
   InterestEntry,
   InterestResponse,
+  MerchantAnalyticsOverview,
+  MerchantBuyerAnalytics,
+  MerchantCategoryAnalytics,
+  ProductInsight,
   MerchantProfile,
   ProductItem,
+  ShopItem,
 } from './types';
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8002';
@@ -215,6 +221,14 @@ export async function removeInterest(productId: number): Promise<{ message: stri
 
 /* ---- Merchant / Shop ---- */
 
+export async function getMyShops(): Promise<ShopItem[]> {
+  return request('/api/merchants/me/shops');
+}
+
+export async function getShop(merchantId: number): Promise<ShopItem> {
+  return request(`/api/merchants/${merchantId}`);
+}
+
 export async function updateMerchantProfile(data: {
   business_name?: string;
   category?: string;
@@ -236,8 +250,8 @@ export async function getMerchantProfile(): Promise<MerchantProfile> {
   return request('/api/merchants/me/profile');
 }
 
-export async function getMyProducts(): Promise<ProductItem[]> {
-  return request('/api/products');
+export async function getMyProducts(merchantId?: number): Promise<ProductItem[]> {
+  return request('/api/products', { params: { merchant_id: merchantId } });
 }
 
 export async function createProduct(data: {
@@ -246,7 +260,8 @@ export async function createProduct(data: {
   price: number;
   brand?: string;
   stock_qty?: number;
-}): Promise<{ id: number }> {
+  attributes?: Record<string, unknown>;
+}, merchantId?: number): Promise<{ id: number }> {
   return request('/api/products', {
     method: 'POST',
     params: {
@@ -255,13 +270,16 @@ export async function createProduct(data: {
       price: data.price,
       brand: data.brand,
       stock_qty: data.stock_qty,
+      attributes: data.attributes ? JSON.stringify(data.attributes) : undefined,
+      merchant_id: merchantId,
     },
   });
 }
 
 export async function updateProduct(
   id: number,
-  data: { name?: string; category?: string; price?: number; brand?: string; stock_qty?: number },
+  data: { name?: string; category?: string; price?: number; brand?: string; stock_qty?: number; attributes?: Record<string, unknown> },
+  merchantId?: number,
 ): Promise<{ id: number }> {
   return request(`/api/products/${id}`, {
     method: 'PUT',
@@ -271,18 +289,42 @@ export async function updateProduct(
       price: data.price,
       brand: data.brand,
       stock_qty: data.stock_qty,
+      attributes: data.attributes ? JSON.stringify(data.attributes) : undefined,
+      merchant_id: merchantId,
     },
   });
 }
 
-export async function deleteProduct(id: number): Promise<{ message: string }> {
-  return request(`/api/products/${id}`, { method: 'DELETE' });
+export async function deleteProduct(id: number, merchantId?: number): Promise<{ message: string }> {
+  return request(`/api/products/${id}`, { method: 'DELETE', params: { merchant_id: merchantId } });
 }
 
-export async function uploadProductImage(id: number, file: File): Promise<{ id: number; url: string }> {
+export async function uploadProductImage(id: number, file: File, merchantId?: number): Promise<{ id: number; url: string }> {
   const form = new FormData();
   form.append('file', file);
-  return request(`/api/products/${id}/images`, { method: 'POST', form });
+  return request(`/api/products/${id}/images`, { method: 'POST', form, params: { merchant_id: merchantId } });
+}
+
+/* ---- Merchant analytics ---- */
+
+export async function getMerchantAnalytics(days = 30, merchantId?: number): Promise<MerchantAnalyticsOverview> {
+  return request('/api/merchants/me/analytics/overview', { params: { days, merchant_id: merchantId } });
+}
+
+export async function getMerchantCategoryAnalytics(category: string, days = 30, merchantId?: number): Promise<MerchantCategoryAnalytics> {
+  return request(`/api/merchants/me/analytics/category/${encodeURIComponent(category)}`, { params: { days, merchant_id: merchantId } });
+}
+
+export async function getMerchantProductInsights(days = 30, merchantId?: number): Promise<{ period_days: number; products: ProductInsight[] }> {
+  return request('/api/merchants/me/analytics/products', { params: { days, merchant_id: merchantId } });
+}
+
+export async function getMerchantBuyerAnalytics(days = 30, merchantId?: number): Promise<MerchantBuyerAnalytics> {
+  return request('/api/merchants/me/analytics/buyers', { params: { days, merchant_id: merchantId } });
+}
+
+export async function getMerchantRecommendations(days = 30, merchantId?: number): Promise<{ period_days: number; recommendations: AnalyticsRecommendation[] }> {
+  return request('/api/merchants/me/analytics/recommendations', { params: { days, merchant_id: merchantId } });
 }
 
 /* ---- Result codes ---- */

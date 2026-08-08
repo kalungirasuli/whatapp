@@ -15,6 +15,7 @@ interface ChatWindowProps {
   onFollowUp: (prompt: string) => void;
   onInterest: (productId: number, name: string, resultCode?: string) => void;
   onOpenShop: () => void;
+  onOpenDashboard: () => void;
   onOpenProfile: () => void;
   onOpenHistory: () => void;
   onLogout: () => void;
@@ -27,7 +28,7 @@ const QUICK_ACTIONS = [
   { icon: CameraIcon, label: 'Upload a photo', prompt: '' },
 ];
 
-export function ChatWindow({ chat, isTyping, isAuthenticated, hasShop, onSend, onFollowUp, onInterest, onOpenShop, onOpenProfile, onOpenHistory, onLogout }: ChatWindowProps) {
+export function ChatWindow({ chat, isTyping, isAuthenticated, hasShop, onSend, onFollowUp, onInterest, onOpenShop, onOpenDashboard, onOpenProfile, onOpenHistory, onLogout }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isWelcome = chat.messages.length === 0;
 
@@ -44,6 +45,7 @@ export function ChatWindow({ chat, isTyping, isAuthenticated, hasShop, onSend, o
         isAuthenticated={isAuthenticated}
         hasShop={hasShop}
         onOpenShop={onOpenShop}
+        onOpenDashboard={onOpenDashboard}
         onOpenProfile={onOpenProfile}
         onOpenHistory={onOpenHistory}
         onLogout={onLogout} />

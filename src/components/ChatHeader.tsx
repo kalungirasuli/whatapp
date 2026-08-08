@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   HistoryIcon,
+  LayoutDashboardIcon,
   LogOutIcon,
   MoreVerticalIcon,
   StoreIcon,
@@ -14,18 +15,20 @@ interface ChatHeaderProps {
   isAuthenticated: boolean;
   hasShop: boolean;
   onOpenShop: () => void;
+  onOpenDashboard: () => void;
   onOpenProfile: () => void;
   onOpenHistory: () => void;
   onLogout: () => void;
 }
 
-export function ChatHeader({ chat, isTyping, isAuthenticated, hasShop, onOpenShop, onOpenProfile, onOpenHistory, onLogout }: ChatHeaderProps) {
+export function ChatHeader({ chat, isTyping, isAuthenticated, hasShop, onOpenShop, onOpenDashboard, onOpenProfile, onOpenHistory, onLogout }: ChatHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuItems = isAuthenticated
     ? [
         { id: 'history', label: 'Old chats', icon: HistoryIcon },
-        { id: 'shop', label: hasShop ? 'Shop' : 'Create shop', icon: StoreIcon },
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboardIcon },
+        { id: 'shop', label: hasShop ? 'My shops' : 'Create shop', icon: StoreIcon },
         { id: 'profile', label: 'Profile', icon: UserRoundIcon },
         { id: 'logout', label: 'Log out', icon: LogOutIcon },
       ]
@@ -84,7 +87,8 @@ export function ChatHeader({ chat, isTyping, isAuthenticated, hasShop, onOpenSho
             role="menuitem"
             onClick={() => {
               setIsMenuOpen(false);
-              if (id === 'shop') onOpenShop();
+               if (id === 'shop') onOpenShop();
+               if (id === 'dashboard') onOpenDashboard();
               if (id === 'profile') onOpenProfile();
               if (id === 'history') onOpenHistory();
               if (id === 'logout') onLogout();

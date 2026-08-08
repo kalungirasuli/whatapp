@@ -15,7 +15,7 @@ interface ShopManagementModalProps {
   shop: { shopName: string; location: string; phoneNumber?: string };
   products: ProductItem[];
   onClose: () => void;
-  onCreate: (product: { name: string; price: string; category: string; description: string; stock: string; imageUrl?: string }, file?: File) => void;
+  onCreate: (product: { name: string; price: string; category: string; description: string; stock: string; attributes?: Record<string, unknown>; imageUrl?: string }, file?: File) => void;
   onUpdate: (product: ProductItem) => void;
   onDelete: (productId: number) => void;
   onUploadImage: (productId: number, file: File) => void;
@@ -27,6 +27,7 @@ interface Draft {
   stock: string;
   category: string;
   description: string;
+  attributes: string;
   imageUrl?: string;
   file?: File;
 }
@@ -37,6 +38,7 @@ const emptyDraft: Draft = {
   stock: '',
   category: '',
   description: '',
+  attributes: '',
   imageUrl: undefined,
   file: undefined,
 };
@@ -64,6 +66,7 @@ export function ShopManagementModal({ shop, products, onClose, onCreate, onUpdat
       stock: String(product.stock_qty),
       category: product.category,
       description: product.brand ?? '',
+      attributes: product.attributes ? JSON.stringify(product.attributes) : '',
       imageUrl: product.images[0]?.url,
       file: undefined,
     });
@@ -91,6 +94,7 @@ export function ShopManagementModal({ shop, products, onClose, onCreate, onUpdat
           stock: draft.stock,
           category: draft.category,
           description: draft.description,
+          attributes: parseAttributes(draft.attributes),
           imageUrl: draft.imageUrl,
         },
         draft.file,
@@ -102,7 +106,7 @@ export function ShopManagementModal({ shop, products, onClose, onCreate, onUpdat
   const structuredProductFromDraft = () => {
     const price = parseFloat(draft.price.replace(/[^0-9.]/g, '')) || 0;
     const stock = parseInt(draft.stock.replace(/\D/g, ''), 10) || 0;
-    return { name: draft.name, category: draft.category, price, stock_qty: stock, brand: draft.description || null };
+    return { name: draft.name, category: draft.category, price, stock_qty: stock, brand: draft.description || null, attributes: parseAttributes(draft.attributes) };
   };
 
   const imageUrlFor = (product: ProductItem): string | undefined => product.images.find((img) => img.is_primary)?.url ?? product.images[0]?.url;
@@ -160,6 +164,7 @@ export function ShopManagementModal({ shop, products, onClose, onCreate, onUpdat
               <div className="grid gap-4 sm:grid-cols-2"><FormField label="Price (UGX)" htmlFor="product-price"><input id="product-price" value={draft.price} onChange={(event) => updateDraft('price', event.target.value)} required placeholder="e.g. 150000" inputMode="numeric" className={inputClassName} /></FormField><FormField label="Stock" htmlFor="product-stock"><input id="product-stock" inputMode="numeric" value={draft.stock} onChange={(event) => updateDraft('stock', event.target.value)} required placeholder="e.g. 12" className={inputClassName} /></FormField></div>
               <FormField label="Category" htmlFor="product-category"><input id="product-category" value={draft.category} onChange={(event) => updateDraft('category', event.target.value)} required placeholder="e.g. Accessories" className={inputClassName} /></FormField>
               <FormField label="Description" htmlFor="product-description"><textarea id="product-description" value={draft.description} onChange={(event) => updateDraft('description', event.target.value)} rows={3} placeholder="Describe your product" className={`${inputClassName} resize-none`} /></FormField>
+              <FormField label="Product attributes" htmlFor="product-attributes"><textarea id="product-attributes" value={draft.attributes} onChange={(event) => updateDraft('attributes', event.target.value)} rows={3} placeholder="color=brown, size=45, material=leather, year=2020" className={`${inputClassName} resize-none`} /></FormField>
               <div className="flex justify-end gap-3 border-t border-wa-border pt-4"><button type="button" onClick={resetEditor} className="rounded-lg px-4 py-2.5 text-sm font-medium text-wa-textSecondary hover:bg-wa-panelAlt focus:outline-none focus:ring-2 focus:ring-wa-green">Clear</button><button type="submit" className="rounded-lg bg-wa-header px-5 py-2.5 text-sm font-semibold text-white hover:bg-wa-headerHover focus:outline-none focus:ring-2 focus:ring-wa-green focus:ring-offset-2">{editingId !== null ? 'Save product' : 'Add product'}</button></div>
             </form>
           </section>
@@ -176,3 +181,17 @@ function formatPrice(price: number, currency: string): string {
 }
 
 const inputClassName = 'w-full rounded-lg border border-wa-border bg-wa-panel px-3 py-2.5 text-sm text-wa-textPrimary placeholder:text-wa-textSecondary focus:border-wa-header focus:outline-none focus:ring-2 focus:ring-wa-green/30';
+
+function parseAttributes(value: string): Record<string, string> {
+  return Object.fromEntries(
+    value
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const [key, ...rest] = part.split('=');
+        return [key.trim(), rest.join('=').trim()];
+      })
+      .filter(([key, itemValue]) => Boolean(key && itemValue)),
+  );
+}

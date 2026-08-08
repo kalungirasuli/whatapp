@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { HashRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { ChatWindow } from './components/ChatWindow';
 import { HistoryModal } from './components/HistoryModal';
 import { ProfileModal } from './components/ProfileModal';
-import { ShopManagementModal } from './components/ShopManagementModal';
 import { ShopRegistrationForm } from './components/ShopRegistrationForm';
 import { AuthGate } from './components/AuthGate';
+import { ShopsPage } from './pages/ShopsPage';
+import { DashboardPage } from './pages/DashboardPage';
 import {
   Attachment,
   AuthSession,
@@ -13,29 +15,23 @@ import {
   HistoryEntry,
   InterestEntry,
   Message,
-  MerchantProfile,
-  ProductItem,
   ProfileData,
+  ShopItem,
 } from './types';
 import { CURRENT_USER_AVATAR, now } from './data';
 import {
   clearSession,
-  createProduct,
-  deleteProduct,
   expressInterest,
-  getMe,
   getChatMessages,
+  getMe,
   getMyHistory,
   getMyInterests,
-  getMyProducts,
-  getMerchantProfile,
+  getMyShops,
   getSession,
   removeInterest,
   sendChat,
   setSession as persistSession,
   updateMerchantProfile,
-  updateProduct,
-  uploadProductImage,
 } from './api';
 
 const CHAT_STORAGE_KEY = 'wa_chat_messages';
@@ -60,6 +56,15 @@ function loadChat(): Message[] {
 }
 
 export function App() {
+  return (
+    <HashRouter>
+      <Shell />
+    </HashRouter>
+  );
+}
+
+function Shell() {
+  const navigate = useNavigate();
   const [session, setSession] = useState<AuthSession | null>(getSession());
   const [user, setUser] = useState<AuthUser | null>(session?.user ?? null);
   const [chat, setChat] = useState<Chat>({ id: 'main', name: 'Lisa', avatar: AI_AVATAR, about: 'Your AI shopping assistant', online: true, messages: [] });
@@ -72,14 +77,12 @@ export function App() {
     location: '',
     avatarUrl: CURRENT_USER_AVATAR,
   });
-  const [merchant, setMerchant] = useState<MerchantProfile | null>(null);
-  const [products, setProducts] = useState<ProductItem[]>([]);
+  const [shops, setShops] = useState<ShopItem[]>([]);
   const [interests, setInterests] = useState<InterestEntry[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isShopFormOpen, setIsShopFormOpen] = useState(false);
-  const [isShopManagerOpen, setIsShopManagerOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [pendingAccountAction, setPendingAccountAction] = useState<'shop' | 'profile' | 'history' | 'interest' | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -98,23 +101,12 @@ export function App() {
         displayName: me.name ?? current.displayName,
         phoneNumber: me.phone,
       }));
-      if (me.role === 'merchant') {
-        const [merchantData, productList] = await Promise.all([loadMerchantProfile(), getMyProducts()]);
-        setMerchant(merchantData);
-        setProducts(productList);
-      }
+      const myShops = await getMyShops();
+      setShops(myShops);
     } catch {
       /* ignore */
     }
   }, []);
-
-  const loadMerchantProfile = async (): Promise<MerchantProfile> => {
-    try {
-      return await getMerchantProfile();
-    } catch {
-      return null as unknown as MerchantProfile;
-    }
-  };
 
   const handleAuthenticated = (newSession: AuthSession) => {
     const pending = pendingAccountAction;
@@ -139,18 +131,17 @@ export function App() {
     localStorage.removeItem(CHAT_STORAGE_KEY);
     setSession(null);
     setUser(null);
-    setMerchant(null);
-    setProducts([]);
+    setShops([]);
     setInterests([]);
     setHistory([]);
     setChat({ id: 'main', name: 'Lisa', avatar: AI_AVATAR, about: 'Your AI shopping assistant', online: true, messages: [] });
     setContextLoaded(false);
-    setIsShopManagerOpen(false);
     setIsShopFormOpen(false);
     setIsProfileOpen(false);
     setIsHistoryOpen(false);
     setIsAuthOpen(false);
     setPendingAccountAction(null);
+    navigate('/');
   };
 
   const requireAccount = (action: string, pending: 'shop' | 'profile' | 'history' | 'interest') => {
@@ -302,11 +293,8 @@ export function App() {
         business_name: shopData.shopName,
         category: shopData.productCategory,
       });
-      const [merchantData, productList] = await Promise.all([loadMerchantProfile(), getMyProducts()]);
-      setMerchant(merchantData);
-      setProducts(productList);
+      setShops(await getMyShops());
       void refreshUser();
-      setIsShopManagerOpen(true);
       showToast(`${shopData.shopName} is ready to open on WhatsApp.`);
     } catch (error) {
       setIsShopFormOpen(true);
@@ -319,11 +307,31 @@ export function App() {
       requireAccount('create a shop', 'shop');
       return;
     }
-    if (merchant) {
-      setIsShopManagerOpen(true);
-    } else {
+    if (shops.length === 0) {
       setIsShopFormOpen(true);
+      return;
     }
+    navigate('/shops');
+  };
+
+  const handleOpenDashboard = () => {
+    if (!session || !user) {
+      requireAccount('open your business dashboard', 'shop');
+      return;
+    }
+    if (shops.length === 0) {
+      setIsShopFormOpen(true);
+      return;
+    }
+    navigate('/dashboard');
+  };
+
+  const handleCreateShop = () => {
+    if (!session || !user) {
+      requireAccount('create a shop', 'shop');
+      return;
+    }
+    setIsShopFormOpen(true);
   };
 
   const handleOpenProfile = () => {
@@ -332,62 +340,6 @@ export function App() {
       return;
     }
     setIsProfileOpen(true);
-  };
-
-  const handleCreateProduct = async (product: {
-    name: string;
-    price: string;
-    category: string;
-    description: string;
-    stock: string;
-    imageUrl?: string;
-  }, file?: File) => {
-    const price = parseFloat(product.price.replace(/[^0-9.]/g, ''));
-    const stock = parseInt(product.stock.replace(/\D/g, ''), 10);
-    if (Number.isNaN(price)) {
-      showToast('Please enter a valid price');
-      return;
-    }
-    try {
-      const created = await createProduct({
-        name: product.name,
-        category: product.category,
-        price,
-        stock_qty: Number.isNaN(stock) ? 0 : stock,
-        brand: product.description,
-      });
-      if (file) await uploadProductImage(created.id, file);
-      setProducts(await getMyProducts());
-      showToast('Product added to your catalog');
-    } catch (error) {
-      showToast(`Could not add product: ${error instanceof Error ? error.message : 'error'}`);
-    }
-  };
-
-  const handleUpdateProduct = async (product: ProductItem) => {
-    try {
-      await updateProduct(product.id, {
-        name: product.name,
-        category: product.category,
-        price: product.price,
-        brand: product.brand ?? undefined,
-        stock_qty: product.stock_qty,
-      });
-      setProducts(await getMyProducts());
-      showToast('Product updated');
-    } catch (error) {
-      showToast(`Could not update product: ${error instanceof Error ? error.message : 'error'}`);
-    }
-  };
-
-  const handleDeleteProduct = async (productId: number) => {
-    try {
-      await deleteProduct(productId);
-      setProducts((current) => current.filter((item) => item.id !== productId));
-      showToast('Product deleted');
-    } catch (error) {
-      showToast(`Could not delete product: ${error instanceof Error ? error.message : 'error'}`);
-    }
   };
 
   const openHistory = async () => {
@@ -457,19 +409,31 @@ export function App() {
     <main className="flex h-full w-full flex-col bg-wa-panelAlt">
       <div className="hidden h-[19px] w-full shrink-0 bg-wa-header md:block" />
       <div className="min-h-0 flex-1 md:mx-auto md:flex md:w-full md:max-w-[1280px] md:shadow-panel">
-        <ChatWindow
-          chat={chat}
-          isTyping={isTyping}
-          isAuthenticated={Boolean(session && user)}
-          hasShop={Boolean(merchant)}
-          onSend={handleSend}
-          onFollowUp={handleFollowUp}
-          onInterest={handleInterest}
-          onOpenShop={handleOpenShop}
-          onOpenProfile={handleOpenProfile}
-          onOpenHistory={() => void openHistory()}
-          onLogout={handleLogout}
-        />
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <ChatWindow
+                chat={chat}
+                isTyping={isTyping}
+                isAuthenticated={Boolean(session && user)}
+                hasShop={shops.length > 0}
+                onSend={handleSend}
+                onFollowUp={handleFollowUp}
+                onInterest={handleInterest}
+                onOpenShop={handleOpenShop}
+                onOpenDashboard={handleOpenDashboard}
+                onOpenProfile={handleOpenProfile}
+                onOpenHistory={() => void openHistory()}
+                onLogout={handleLogout}
+              />
+            }
+          />
+          <Route path="/shops" element={<ShopsPage shops={shops} showToast={showToast} onCreateShop={handleCreateShop} />} />
+          <Route path="/dashboard" element={<DashboardPage shops={shops} onCreateShop={handleCreateShop} />} />
+          <Route path="/dashboard/:shopId" element={<DashboardPage shops={shops} onCreateShop={handleCreateShop} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </div>
       {isProfileOpen && (
         <ProfileModal
@@ -494,21 +458,6 @@ export function App() {
         <ShopRegistrationForm
           onClose={() => setIsShopFormOpen(false)}
           onSubmit={(data) => void handleShopRegistration(data)}
-        />
-      )}
-      {isShopManagerOpen && merchant && (
-        <ShopManagementModal
-          shop={{
-            shopName: merchant.business_name,
-            location: merchant.location_lat != null ? `${merchant.location_lat.toFixed(4)}, ${merchant.location_lng?.toFixed(4)}` : '',
-            phoneNumber: merchant.phone_number,
-          }}
-          products={products}
-          onClose={() => setIsShopManagerOpen(false)}
-          onCreate={(product, file) => void handleCreateProduct(product, file)}
-          onUpdate={(product) => void handleUpdateProduct(product)}
-          onDelete={(productId) => void handleDeleteProduct(productId)}
-          onUploadImage={(productId, file) => void uploadProductImage(productId, file)}
         />
       )}
       {isAuthOpen && (

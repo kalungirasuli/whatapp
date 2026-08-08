@@ -154,11 +154,16 @@ export interface MerchantProfile {
   created_at: string;
 }
 
+export interface ShopItem extends MerchantProfile {
+  product_count: number;
+}
+
 export interface ProductItem {
   id: number;
   name: string;
   brand: string | null;
   category: string;
+  attributes?: Record<string, unknown>;
   price: number;
   currency: string;
   stock_qty: number;
@@ -209,6 +214,73 @@ export interface InterestResponse {
     location_lat?: number | null;
     location_lng?: number | null;
   } | null;
+}
+
+export interface MerchantAnalyticsOverview {
+  mode: string;
+  category: string;
+  period_days: number;
+  summary: {
+    products: number;
+    active_products: number;
+    interests: number;
+    unique_buyers: number;
+    search_impressions: number;
+    conversion_rate: number;
+    average_match_score: number;
+  };
+  timeline: Array<{ date: string; interests: number; impressions: number }>;
+  top_products: ProductInsight[];
+}
+
+export interface ProductInsight {
+  product_id: number;
+  name: string;
+  category: string;
+  brand: string | null;
+  price: number;
+  currency: string;
+  stock_qty: number;
+  image_count: number;
+  attributes: Record<string, unknown>;
+  impressions: number;
+  interests: number;
+  conversion_rate: number;
+  average_score: number;
+  average_rank: number | null;
+}
+
+export interface MerchantCategoryAnalytics {
+  category: string;
+  period_days: number;
+  market: {
+    products: number;
+    merchants: number;
+    searches: number;
+    impressions: number;
+    merchant_impression_share: number;
+  };
+  attributes: Record<string, Record<string, number>>;
+  prices: { average_market_price: number; your_average_price: number };
+}
+
+export interface MerchantBuyerAnalytics {
+  period_days: number;
+  unique_buyers: number;
+  buyers: Array<{
+    phone: string;
+    interests: number;
+    first_seen: string;
+    last_seen: string;
+    products: number[];
+  }>;
+}
+
+export interface AnalyticsRecommendation {
+  type: string;
+  priority: string;
+  message: string;
+  product_id?: number;
 }
 
 export interface HistoryEntry {
