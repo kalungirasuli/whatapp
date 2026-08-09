@@ -5,15 +5,18 @@ import {
   CopyIcon,
   ExternalLinkIcon,
   FileTextIcon,
-  MoreHorizontalIcon } from
+  MoreHorizontalIcon,
+  AlertCircleIcon } from
 'lucide-react';
 import { Message } from '../types';
 import { ProductSection } from './ProductSection';
 
 interface MessageBubbleProps {
   message: Message;
+  interestedIds: Set<number>;
   onFollowUp: (prompt: string) => void;
   onInterest: (productId: number, name: string, resultCode?: string) => void;
+  onResend: (messageId: string) => void;
 }
 
 type Feedback = 'copied' | 'opened' | null;
@@ -31,13 +34,14 @@ function Ticks({ status }: {status?: Message['status'];}) {
   return <CheckIcon className="h-4 w-4 text-wa-textSecondary" aria-label="Sent" />;
 }
 
-export function MessageBubble({ message, onFollowUp, onInterest }: MessageBubbleProps) {
+export function MessageBubble({ message, interestedIds, onFollowUp, onInterest, onResend }: MessageBubbleProps) {
   const [isActive, setIsActive] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [selectedNumber, setSelectedNumber] = useState<string | null>(null);
   const messageRef = useRef<HTMLDivElement>(null);
   const isUser = message.sender === 'user';
+  const isFailed = isUser && message.status === 'failed';
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -156,8 +160,12 @@ export function MessageBubble({ message, onFollowUp, onInterest }: MessageBubble
       <div
         onClick={() => setIsActive(true)}
         className={`relative max-w-[85%] cursor-pointer rounded-lg p-1.5 shadow-bubble sm:max-w-[65%] ${
-        isUser ? 'rounded-tr-none bg-wa-sent' : 'rounded-tl-none bg-wa-received'}`
-        }>
+        isUser
+          ? isFailed
+            ? 'rounded-tr-none border border-red-300 bg-[#fef2f2]'
+            : 'rounded-tr-none bg-wa-sent'
+          : 'rounded-tl-none bg-wa-received'
+        }`}>
         
         <span
           aria-hidden="true"
@@ -212,11 +220,29 @@ export function MessageBubble({ message, onFollowUp, onInterest }: MessageBubble
           </p>
         }
 
+        {isFailed && (
+          <div className="mt-3 rounded-lg border border-red-200 bg-[#fff1f2] px-3 py-2 text-sm text-[#991b1b]">
+            <div className="flex items-center gap-2 font-semibold text-[#b91c1c]">
+              <AlertCircleIcon className="h-4 w-4" />
+              Failed to send
+            </div>
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onResend(message.id)}
+                className="rounded-full bg-[#dc2626] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#b91c1c] focus:outline-none focus:ring-2 focus:ring-[#fca5a5]">
+                Retry
+              </button>
+            </div>
+          </div>
+        )}
+
         {message.products && message.products.length > 0 &&
         <ProductSection
             sections={message.products}
             resultCode={message.resultCode}
             followUp={message.followUp}
+            interestedIds={interestedIds}
             onFollowUp={onFollowUp}
             onInterest={onInterest} />
         }

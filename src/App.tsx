@@ -20,7 +20,7 @@ import {
 } from './types';
 import { CURRENT_USER_AVATAR, now } from './data';
 import {
-  clearSession,
+  clearAllSiteData,
   expressInterest,
   getChatMessages,
   getMe,
@@ -33,6 +33,61 @@ import {
   setSession as persistSession,
   updateMerchantProfile,
 } from './api';
+import { ChatMessage, ProductResult } from './types';
+
+function getSectionPriority(label: string): number {
+  const normalized = label.toLowerCase();
+  if (normalized.includes('exact')) return 0;
+  if (normalized.includes('matching')) return 1;
+  if (normalized.includes('related')) return 2;
+  return 3;
+}
+
+function mergeSearchResultMessages(messages: ChatMessage[]): ChatMessage[] {
+  const searchMessages = messages.filter((message) => message.type === 'search_results');
+  if (searchMessages.length <= 1) return messages;
+
+  const mergedLabel = searchMessages.reduce((current, message) => {
+    const label = message.label?.trim() ?? '';
+    if (!label) return current;
+    if (current && current.toLowerCase().includes('exact')) return current;
+    if (label.toLowerCase().includes('exact')) return label;
+    return current || label;
+  }, '');
+
+  const resultMap = new Map<number, { result: ProductResult; priority: number }>();
+
+  searchMessages.forEach((message) => {
+    const priority = getSectionPriority(message.label ?? '');
+    (message.results ?? []).forEach((result) => {
+      const existing = resultMap.get(result.product_id);
+      if (
+        !existing ||
+        priority < existing.priority ||
+        (priority === existing.priority && result.score > existing.result.score)
+      ) {
+        resultMap.set(result.product_id, { result, priority });
+      }
+    });
+  });
+
+  const mergedResults = Array.from(resultMap.values())
+    .map((entry) => entry.result)
+    .sort((a, b) => b.score - a.score);
+
+  const firstResultIndex = messages.findIndex((message) => message.type === 'search_results');
+  const before = messages.slice(0, firstResultIndex).filter((message) => message.type !== 'search_results');
+  const after = messages.slice(firstResultIndex).filter((message) => message.type !== 'search_results');
+
+  const mergedMessage: ChatMessage = {
+    type: 'search_results',
+    label: mergedLabel || 'Search results',
+    total: mergedResults.length,
+    results: mergedResults,
+  };
+
+  return [...before, mergedMessage, ...after];
+}
 
 const CHAT_STORAGE_KEY = 'wa_chat_messages';
 const AI_AVATAR = '/79fd36db-6d51-44a5-af73-bc63277d2b95.jpg';
@@ -86,6 +141,8 @@ function Shell() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [pendingAccountAction, setPendingAccountAction] = useState<'shop' | 'profile' | 'history' | 'interest' | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
 
   const showToast = useCallback((message: string) => {
     setToastMessage(message);
@@ -127,7 +184,7 @@ function Shell() {
   };
 
   const handleLogout = () => {
-    clearSession();
+    clearAllSiteData();
     localStorage.removeItem(CHAT_STORAGE_KEY);
     setSession(null);
     setUser(null);
@@ -150,20 +207,31 @@ function Shell() {
     setIsAuthOpen(true);
   };
 
-  const handleSend = async (text: string, attachment?: Attachment) => {
+  const handleSend = async (text: string, attachment?: Attachment, retryMessageId?: string) => {
     const isImage = attachment?.mimeType.startsWith('image/');
+    const newMessageId = retryMessageId ?? `user-${Date.now()}`;
     const userMessage: Message = {
-      id: `user-${Date.now()}`,
+      id: newMessageId,
       sender: 'user',
       text: isImage ? undefined : text || undefined,
       imageUrl: isImage ? attachment?.url : undefined,
       imageCaption: isImage ? text || undefined : undefined,
       attachment: isImage ? undefined : attachment,
       timestamp: now(),
-      status: 'read',
+      status: 'sent',
     };
 
-    setChat((c) => ({ ...c, messages: [...c.messages, userMessage] }));
+    if (retryMessageId) {
+      setChat((c) => ({
+        ...c,
+        messages: c.messages.map((message) =>
+          message.id === retryMessageId ? { ...message, status: 'sent' } : message,
+        ),
+      }));
+    } else {
+      setChat((c) => ({ ...c, messages: [...c.messages, userMessage] }));
+    }
+
     setIsTyping(true);
 
     try {
@@ -185,8 +253,9 @@ function Shell() {
         const serverMessages = reply.messages.filter(
           (message) => !(reply.follow_up && message.text?.trim() === reply.follow_up.prompt.trim()),
         );
-        const firstResultsIndex = serverMessages.findIndex((message) => message.type === 'search_results');
-        const messages = [...serverMessages];
+        const normalizedMessages = mergeSearchResultMessages(serverMessages);
+        const firstResultsIndex = normalizedMessages.findIndex((message) => message.type === 'search_results');
+        const messages = [...normalizedMessages];
         if (responseText && !messages.some((message) => message.text?.trim() === responseText)) {
           messages.splice(
             firstResultsIndex >= 0 ? firstResultsIndex : messages.length,
@@ -227,6 +296,13 @@ function Shell() {
         }));
       }
     } catch (error) {
+      const failedMessageId = retryMessageId ?? newMessageId;
+      setChat((c) => ({
+        ...c,
+        messages: c.messages.map((message) =>
+          message.id === failedMessageId ? { ...message, status: 'failed' } : message,
+        ),
+      }));
       setChat((c) => ({
         ...c,
         messages: [...c.messages, {
@@ -246,6 +322,12 @@ function Shell() {
 
   const handleFollowUp = (prompt: string) => {
     void handleSend(prompt);
+  };
+
+  const handleResend = async (messageId: string) => {
+    const message = chat.messages.find((item) => item.id === messageId && item.sender === 'user');
+    if (!message || !message.text) return;
+    await handleSend(message.text, message.attachment, messageId);
   };
 
   const handleInterest = async (productId: number, name: string, resultCode?: string) => {
@@ -405,10 +487,75 @@ function Shell() {
     if (chat.messages.length > 0) saveChat(chat.messages);
   }, [chat.messages]);
 
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event: Event) => {
+      const promptEvent = event as BeforeInstallPromptEvent;
+      promptEvent.preventDefault();
+      setDeferredInstallPrompt(promptEvent);
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredInstallPrompt(null);
+      setIsAppInstalled(true);
+      showToast('App installed successfully');
+    };
+
+    const checkStandalone = () => {
+      if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+        setIsAppInstalled(true);
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
+    window.addEventListener('appinstalled', handleAppInstalled);
+    checkStandalone();
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as EventListener);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, [showToast]);
+
+  const promptInstall = async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const choiceResult = await deferredInstallPrompt.userChoice;
+    if (choiceResult.outcome === 'accepted') {
+      showToast('Thank you for installing the app');
+    } else {
+      showToast('Installation dismissed');
+    }
+    setDeferredInstallPrompt(null);
+  };
+
   return (
     <main className="flex h-full w-full flex-col bg-wa-panelAlt">
       <div className="hidden h-[19px] w-full shrink-0 bg-wa-header md:block" />
       <div className="min-h-0 flex-1 md:mx-auto md:flex md:w-full md:max-w-[1280px] md:shadow-panel">
+        {deferredInstallPrompt && !isAppInstalled && (
+          <div className="mx-3 mb-3 rounded-2xl border border-wa-border bg-wa-panel px-4 py-3 text-sm text-wa-textPrimary shadow-sm md:mx-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-semibold text-wa-textPrimary">Install WhatApp for faster access</p>
+                <p className="mt-1 text-xs text-wa-textSecondary">Add this app to your home screen for quick shopping support.</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={promptInstall}
+                  className="rounded-full bg-wa-green px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1ebd53] focus:outline-none focus:ring-2 focus:ring-wa-green">
+                  Install app
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeferredInstallPrompt(null)}
+                  className="rounded-full border border-wa-border bg-wa-panel px-4 py-2 text-xs font-semibold text-wa-textPrimary hover:bg-wa-panelAlt focus:outline-none focus:ring-2 focus:ring-wa-green">
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <Routes>
           <Route
             path="/"
@@ -418,9 +565,11 @@ function Shell() {
                 isTyping={isTyping}
                 isAuthenticated={Boolean(session && user)}
                 hasShop={shops.length > 0}
+                interestedIds={new Set(interests.map((item) => item.product.id))}
                 onSend={handleSend}
                 onFollowUp={handleFollowUp}
                 onInterest={handleInterest}
+                onResend={handleResend}
                 onOpenShop={handleOpenShop}
                 onOpenDashboard={handleOpenDashboard}
                 onOpenProfile={handleOpenProfile}

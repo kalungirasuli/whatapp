@@ -43,7 +43,7 @@ export interface Message {
   imageCaption?: string;
   attachment?: Attachment;
   timestamp: string; // "10:24"
-  status?: 'sent' | 'delivered' | 'read';
+  status?: 'sent' | 'delivered' | 'read' | 'failed';
   products?: SearchSection[];
   resultCode?: string;
   followUp?: { type: string; topic: string; image_family: string; prompt: string };

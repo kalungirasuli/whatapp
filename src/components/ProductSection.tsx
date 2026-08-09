@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { ArrowRightIcon, BoxIcon, CopyIcon, MapPinIcon, StarIcon } from 'lucide-react';
+import { ArrowRightIcon, BoxIcon, CopyIcon, HeartIcon, MapPinIcon, StarIcon } from 'lucide-react';
 import { ProductResult, SearchSection } from '../types';
 
 interface ProductSectionProps {
   sections: SearchSection[];
   resultCode?: string;
   followUp?: { type: string; topic: string; image_family: string; prompt: string };
+  interestedIds?: Set<number>;
   onFollowUp: (prompt: string) => void;
   onInterest: (productId: number, name: string, resultCode?: string) => void;
 }
 
-export function ProductSection({ sections, resultCode, followUp, onFollowUp, onInterest }: ProductSectionProps) {
+export function ProductSection({ sections, resultCode, followUp, interestedIds, onFollowUp, onInterest }: ProductSectionProps) {
   const [copied, setCopied] = useState(false);
 
   const copyResultCode = async () => {
@@ -24,58 +25,48 @@ export function ProductSection({ sections, resultCode, followUp, onFollowUp, onI
     window.setTimeout(() => setCopied(false), 1600);
   };
 
-  const partition = (results: ProductResult[]) => {
-    const qualified = results.filter((result) => result.score >= 0.4);
-    const belowThreshold = results.filter((result) => result.score < 0.4);
-    const allQualified = results.length > 0 && belowThreshold.length === 0;
-
-    if (allQualified) {
-      return { mode: 'all' as const, top: [], related: results };
-    }
-
-    if (qualified.length > 0) {
-      const [top, ...remainingQualified] = qualified;
-      return {
-        mode: 'split' as const,
-        top: [top],
-        related: [...remainingQualified, ...belowThreshold],
-      };
-    }
-
-    return { mode: 'related' as const, top: [], related: results };
+  const sectionPriority = (label: string) => {
+    const normalized = label.toLowerCase();
+    if (normalized.includes('exact')) return 0;
+    if (normalized.includes('matching')) return 1;
+    if (normalized.includes('related')) return 2;
+    return 3;
   };
+
+  const partition = (results: ProductResult[]) => {
+    const sortedResults = [...results].sort((a, b) => b.score - a.score);
+    if (sortedResults.length <= 1) {
+      return { top: sortedResults, related: [] };
+    }
+    return { top: [sortedResults[0]], related: sortedResults.slice(1) };
+  };
+
+  const sortedSections = [...sections].sort(
+    (a, b) => sectionPriority(a.label) - sectionPriority(b.label),
+  );
 
   return (
     <div className="space-y-3 px-1.5 pt-1">
-      {sections.map((section) => {
-        const { mode, top, related } = partition(section.results);
+      {sortedSections.map((section) => {
+        const { top, related } = partition(section.results);
         return (
           <section key={section.label} className="space-y-2">
-            {mode === 'all' && related.length > 0 && (
-              <div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {related.map((result) => (
-                    <ProductCard key={result.product_id} result={result} resultCode={resultCode} onInterest={onInterest} />
-                  ))}
-                </div>
-              </div>
-            )}
-            {mode === 'split' && top.length > 0 && (
+            {top.length > 0 && (
               <div>
                 <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-wa-green">
                   Closest match
                 </p>
-                <ClosestMatchCard result={top[0]} resultCode={resultCode} onInterest={onInterest} />
+                <ClosestMatchCard result={top[0]} resultCode={resultCode} interestedIds={interestedIds} onInterest={onInterest} />
               </div>
             )}
-            {mode !== 'all' && related.length > 0 && (
+            {related.length > 0 && (
               <div>
                 <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-wa-textSecondary">
                   Related matches
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {related.map((result) => (
-                    <ProductCard key={result.product_id} result={result} resultCode={resultCode} onInterest={onInterest} />
+                    <ProductCard key={result.product_id} result={result} resultCode={resultCode} interestedIds={interestedIds} onInterest={onInterest} />
                   ))}
                 </div>
               </div>
@@ -117,19 +108,28 @@ export function ProductSection({ sections, resultCode, followUp, onFollowUp, onI
   );
 }
 
-function ClosestMatchCard({ result, resultCode, onInterest }: { result: ProductResult; resultCode?: string; onInterest: (id: number, name: string, resultCode?: string) => void }) {
+function ClosestMatchCard({ result, resultCode, interestedIds, onInterest }: { result: ProductResult; resultCode?: string; interestedIds?: Set<number>; onInterest: (id: number, name: string, resultCode?: string) => void }) {
   const imageUrl = result.images.find((img) => img.is_primary)?.url ?? result.images[0]?.url;
   const price = formatPrice(result.price, result.currency);
+  const isLiked = interestedIds?.has(result.product_id) ?? false;
 
   return (
     <article className="overflow-hidden rounded-xl border-2 border-wa-green bg-white shadow-md">
-      {imageUrl ? (
-        <img src={imageUrl} alt={result.name} loading="lazy" className="max-h-80 w-full rounded-md object-contain bg-gray-50" />
-      ) : (
-        <div className="flex h-44 w-full items-center justify-center bg-wa-header/10 text-wa-header">
-          <BoxIcon className="h-10 w-10" />
-        </div>
-      )}
+      <div className="relative">
+        {imageUrl ? (
+          <img src={imageUrl} alt={result.name} loading="lazy" className="max-h-80 w-full rounded-md object-contain bg-gray-50" />
+        ) : (
+          <div className="flex h-44 w-full items-center justify-center bg-wa-header/10 text-wa-header">
+            <BoxIcon className="h-10 w-10" />
+          </div>
+        )}
+        {isLiked && (
+          <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-wa-header px-2.5 py-1 text-xs font-semibold text-white shadow-panel">
+            <HeartIcon className="h-3.5 w-3.5 fill-current" />
+            Liked
+          </span>
+        )}
+      </div>
       <div className="p-3">
         <h3 className="text-base font-semibold text-wa-textPrimary">{result.name}</h3>
         <p className="text-sm text-wa-textSecondary mt-0.5">
@@ -151,16 +151,17 @@ function ClosestMatchCard({ result, resultCode, onInterest }: { result: ProductR
           type="button"
           onClick={() => onInterest(result.product_id, result.name, resultCode)}
           className="mt-3 w-full rounded-lg bg-wa-green px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1ebd53] focus:outline-none focus:ring-2 focus:ring-wa-green focus:ring-offset-2">
-          I&apos;m interested
+          {isLiked ? 'Liked — contact seller' : 'I&apos;m interested'}
         </button>
       </div>
     </article>
   );
 }
 
-function ProductCard({ result, resultCode, onInterest }: { result: ProductResult; resultCode?: string; onInterest: (id: number, name: string, resultCode?: string) => void }) {
+function ProductCard({ result, resultCode, interestedIds, onInterest }: { result: ProductResult; resultCode?: string; interestedIds?: Set<number>; onInterest: (id: number, name: string, resultCode?: string) => void }) {
   const imageUrl = result.images.find((img) => img.is_primary)?.url ?? result.images[0]?.url;
   const price = formatPrice(result.price, result.currency);
+  const isLiked = interestedIds?.has(result.product_id) ?? false;
 
   return (
     <article className="flex flex-col overflow-hidden rounded-xl border border-wa-border bg-wa-panel">
@@ -183,6 +184,12 @@ function ProductCard({ result, resultCode, onInterest }: { result: ProductResult
               {result.match_label}
             </span>
           )}
+          {isLiked && (
+            <span className="flex items-center gap-0.5 rounded-full bg-wa-header px-1.5 py-0.5 text-[10px] font-semibold text-white">
+              <HeartIcon className="h-2.5 w-2.5 fill-current" />
+              Liked
+            </span>
+          )}
           {typeof result.distance_km === 'number' && (
             <span className="flex items-center gap-0.5 rounded-full bg-wa-panelAlt px-1.5 py-0.5 text-[10px] text-wa-textSecondary">
               <MapPinIcon className="h-2.5 w-2.5" />
@@ -195,7 +202,7 @@ function ProductCard({ result, resultCode, onInterest }: { result: ProductResult
             type="button"
             onClick={() => onInterest(result.product_id, result.name, resultCode)}
             className="text-xs font-medium text-wa-header hover:underline focus:outline-none focus:ring-2 focus:ring-wa-green">
-            I&apos;m interested
+            {isLiked ? 'Liked' : 'I&apos;m interested'}
           </button>
         </div>
       </div>

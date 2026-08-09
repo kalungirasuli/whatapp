@@ -52,6 +52,30 @@ export function clearSession(): void {
   localStorage.removeItem('wa_session');
 }
 
+export function clearAllSiteData(): void {
+  clearSession();
+  localStorage.clear();
+  sessionStorage.clear();
+  document.cookie.split(';').forEach((cookie) => {
+    const name = cookie.split('=')[0]?.trim();
+    if (!name) return;
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${location.hostname};`;
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+  });
+  if (typeof indexedDB !== 'undefined' && indexedDB.databases) {
+    void indexedDB.databases().then((dbs) => {
+      dbs.forEach((db) => {
+        if (db.name) indexedDB.deleteDatabase(db.name);
+      });
+    });
+  }
+  if (navigator.serviceWorker) {
+    void navigator.serviceWorker.getRegistrations().then((regs) => {
+      regs.forEach((reg) => void reg.unregister());
+    });
+  }
+}
+
 let refreshPromise: Promise<boolean> | null = null;
 
 async function doRefresh(): Promise<boolean> {
@@ -303,6 +327,10 @@ export async function uploadProductImage(id: number, file: File, merchantId?: nu
   const form = new FormData();
   form.append('file', file);
   return request(`/api/products/${id}/images`, { method: 'POST', form, params: { merchant_id: merchantId } });
+}
+
+export async function deleteProductImage(id: number, imageId: number, merchantId?: number): Promise<{ message: string }> {
+  return request(`/api/products/${id}/images/${imageId}`, { method: 'DELETE', params: { merchant_id: merchantId } });
 }
 
 /* ---- Merchant analytics ---- */

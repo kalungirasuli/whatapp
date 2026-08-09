@@ -15,8 +15,8 @@ interface ShopManagementModalProps {
   shop: { shopName: string; location: string; phoneNumber?: string };
   products: ProductItem[];
   onClose: () => void;
-  onCreate: (product: { name: string; price: string; category: string; description: string; stock: string; attributes?: Record<string, unknown>; imageUrl?: string }, file?: File) => void;
-  onUpdate: (product: ProductItem) => void;
+  onCreate: (product: { name: string; price: string; category: string; description: string; stock: string; attributes?: Record<string, unknown>; imageUrl?: string }, files?: File[]) => void;
+  onUpdate: (product: ProductItem, files?: File[], removedImageIds?: number[]) => void;
   onDelete: (productId: number) => void;
   onUploadImage: (productId: number, file: File) => void;
 }
@@ -28,8 +28,7 @@ interface Draft {
   category: string;
   description: string;
   attributes: string;
-  imageUrl?: string;
-  file?: File;
+  files: File[];
 }
 
 const emptyDraft: Draft = {
@@ -39,13 +38,13 @@ const emptyDraft: Draft = {
   category: '',
   description: '',
   attributes: '',
-  imageUrl: undefined,
-  file: undefined,
+  files: [],
 };
 
-export function ShopManagementModal({ shop, products, onClose, onCreate, onUpdate, onDelete, onUploadImage }: ShopManagementModalProps) {
+export function ShopManagementModal({ shop, products, onClose, onCreate, onUpdate, onDelete }: ShopManagementModalProps) {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [removedImageIds, setRemovedImageIds] = useState<number[]>([]);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   const updateDraft = (field: keyof Draft, value: string) => {
@@ -55,11 +54,13 @@ export function ShopManagementModal({ shop, products, onClose, onCreate, onUpdat
   const resetEditor = () => {
     setDraft(emptyDraft);
     setEditingId(null);
+    setRemovedImageIds([]);
     if (imageInputRef.current) imageInputRef.current.value = '';
   };
 
   const editProduct = (product: ProductItem) => {
     setEditingId(product.id);
+    setRemovedImageIds([]);
     setDraft({
       name: product.name,
       price: String(product.price),
@@ -67,15 +68,23 @@ export function ShopManagementModal({ shop, products, onClose, onCreate, onUpdat
       category: product.category,
       description: product.brand ?? '',
       attributes: product.attributes ? JSON.stringify(product.attributes) : '',
-      imageUrl: product.images[0]?.url,
-      file: undefined,
+      files: [],
     });
   };
 
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setDraft((current) => ({ ...current, imageUrl: URL.createObjectURL(file), file }));
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    setDraft((current) => ({ ...current, files: [...current.files, ...Array.from(files)] }));
+    event.target.value = '';
+  };
+
+  const removeNewFile = (index: number) => {
+    setDraft((current) => ({ ...current, files: current.files.filter((_, i) => i !== index) }));
+  };
+
+  const removeExistingImage = (imageId: number) => {
+    setRemovedImageIds((current) => (current.includes(imageId) ? current : [...current, imageId]));
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -83,8 +92,7 @@ export function ShopManagementModal({ shop, products, onClose, onCreate, onUpdat
     if (editingId !== null) {
       const existing = products.find((item) => item.id === editingId);
       if (existing) {
-        onUpdate({ ...existing, ...structuredProductFromDraft() });
-        if (draft.file) onUploadImage(editingId, draft.file);
+        onUpdate({ ...existing, ...structuredProductFromDraft() }, draft.files, removedImageIds);
       }
     } else {
       onCreate(
@@ -95,9 +103,8 @@ export function ShopManagementModal({ shop, products, onClose, onCreate, onUpdat
           category: draft.category,
           description: draft.description,
           attributes: parseAttributes(draft.attributes),
-          imageUrl: draft.imageUrl,
         },
-        draft.file,
+        draft.files,
       );
     }
     resetEditor();
@@ -109,7 +116,8 @@ export function ShopManagementModal({ shop, products, onClose, onCreate, onUpdat
     return { name: draft.name, category: draft.category, price, stock_qty: stock, brand: draft.description || null, attributes: parseAttributes(draft.attributes) };
   };
 
-  const imageUrlFor = (product: ProductItem): string | undefined => product.images.find((img) => img.is_primary)?.url ?? product.images[0]?.url;
+  const editingProduct = products.find((item) => item.id === editingId);
+  const visibleExistingImages = editingProduct?.images.filter((img) => !removedImageIds.includes(img.id ?? -1)) ?? [];
 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="shop-manager-title" className="fixed inset-0 z-50 flex items-end bg-black/45 sm:items-center sm:justify-center sm:p-6">
@@ -156,9 +164,28 @@ export function ShopManagementModal({ shop, products, onClose, onCreate, onUpdat
           <section className="p-4 md:overflow-y-auto">
             <div className="mb-4"><p className="font-medium text-wa-textPrimary">{editingId !== null ? 'Edit product' : 'Add product'}</p><p className="text-xs text-wa-textSecondary">{editingId !== null ? 'Update the item details below.' : 'Create a product for your WhatsApp catalog.'}</p></div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="flex items-center gap-3 rounded-xl bg-wa-panelAlt p-3">
-                {draft.imageUrl ? <img src={draft.imageUrl} alt="Product preview" className="h-16 w-16 rounded-lg object-cover" /> : <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-wa-header/10 text-wa-header"><ImagePlusIcon className="h-5 w-5" /></div>}
-                <div className="min-w-0 flex-1"><p className="text-sm font-medium text-wa-textPrimary">Product photo</p><p className="mt-0.5 text-xs text-wa-textSecondary">Optional — choose an image from your device. New photos train the image search.</p><button type="button" onClick={() => imageInputRef.current?.click()} className="mt-2 text-xs font-medium text-wa-header hover:underline focus:outline-none focus:ring-2 focus:ring-wa-green">Upload image</button><input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageChange} className="sr-only" /></div>
+              <div className="flex items-start gap-3 rounded-xl bg-wa-panelAlt p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-wa-textPrimary">Product photos</p>
+                  <p className="mt-0.5 text-xs text-wa-textSecondary">You can add several photos. The first uploaded becomes the primary. New photos train the image search.</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {editingProduct && visibleExistingImages.length > 0 && visibleExistingImages.map((image) => (
+                      <div key={image.id} className="relative">
+                        <img src={image.url} alt="Existing product" className="h-16 w-16 rounded-lg object-cover" />
+                        <button type="button" onClick={() => removeExistingImage(image.id ?? -1)} aria-label="Remove photo" className="absolute -right-1.5 -top-1.5 rounded-full bg-[#d94841] p-1 text-white shadow-sm hover:bg-[#c23d36] focus:outline-none focus:ring-2 focus:ring-wa-green"><XIcon className="h-3 w-3" /></button>
+                        {image.is_primary && <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-full bg-wa-header px-1.5 py-0.5 text-[9px] font-semibold text-white">Primary</span>}
+                      </div>
+                    ))}
+                    {draft.files.map((file, index) => (
+                      <div key={`${file.name}-${index}`} className="relative">
+                        <img src={URL.createObjectURL(file)} alt="New product photo" className="h-16 w-16 rounded-lg object-cover" />
+                        <button type="button" onClick={() => removeNewFile(index)} aria-label="Remove new photo" className="absolute -right-1.5 -top-1.5 rounded-full bg-[#d94841] p-1 text-white shadow-sm hover:bg-[#c23d36] focus:outline-none focus:ring-2 focus:ring-wa-green"><XIcon className="h-3 w-3" /></button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => imageInputRef.current?.click()} className="flex h-16 w-16 items-center justify-center rounded-lg border border-dashed border-wa-border bg-wa-panel text-wa-header hover:border-wa-header focus:outline-none focus:ring-2 focus:ring-wa-green"><ImagePlusIcon className="h-5 w-5" /></button>
+                    <input ref={imageInputRef} type="file" accept="image/*" multiple onChange={handleImageChange} className="sr-only" />
+                  </div>
+                </div>
               </div>
               <FormField label="Product name" htmlFor="product-name"><input id="product-name" value={draft.name} onChange={(event) => updateDraft('name', event.target.value)} required placeholder="e.g. Handmade tote bag" className={inputClassName} /></FormField>
               <div className="grid gap-4 sm:grid-cols-2"><FormField label="Price (UGX)" htmlFor="product-price"><input id="product-price" value={draft.price} onChange={(event) => updateDraft('price', event.target.value)} required placeholder="e.g. 150000" inputMode="numeric" className={inputClassName} /></FormField><FormField label="Stock" htmlFor="product-stock"><input id="product-stock" inputMode="numeric" value={draft.stock} onChange={(event) => updateDraft('stock', event.target.value)} required placeholder="e.g. 12" className={inputClassName} /></FormField></div>
@@ -178,6 +205,10 @@ function formatPrice(price: number, currency: string): string {
   if (currency === 'UGX') return `UGX ${price.toLocaleString()}`;
   const symbol = currency === 'KES' ? 'KSh ' : currency === 'USD' ? '$' : `${currency} `;
   return `${symbol}${price.toLocaleString()}`;
+}
+
+function imageUrlFor(product: ProductItem): string | undefined {
+  return product.images.find((img) => img.is_primary)?.url ?? product.images[0]?.url;
 }
 
 const inputClassName = 'w-full rounded-lg border border-wa-border bg-wa-panel px-3 py-2.5 text-sm text-wa-textPrimary placeholder:text-wa-textSecondary focus:border-wa-header focus:outline-none focus:ring-2 focus:ring-wa-green/30';

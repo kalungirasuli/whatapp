@@ -13,6 +13,7 @@ import { ShopManagementModal } from '../components/ShopManagementModal';
 import {
   createProduct,
   deleteProduct,
+  deleteProductImage,
   getMyProducts,
   updateProduct,
   uploadProductImage,
@@ -46,7 +47,7 @@ export function ShopsPage({ shops, showToast, onCreateShop }: ShopsPageProps) {
     stock: string;
     attributes?: Record<string, unknown>;
     imageUrl?: string;
-  }, file?: File) => {
+  }, files?: File[]) => {
     if (!managedShop) return;
     const price = parseFloat(product.price.replace(/[^0-9.]/g, ''));
     const stock = parseInt(product.stock.replace(/\D/g, ''), 10);
@@ -63,7 +64,7 @@ export function ShopsPage({ shops, showToast, onCreateShop }: ShopsPageProps) {
         brand: product.description,
         attributes: product.attributes,
       }, managedShop.id);
-      if (file) await uploadProductImage(created.id, file, managedShop.id);
+      for (const file of files ?? []) await uploadProductImage(created.id, file, managedShop.id);
       setShopProducts(await getMyProducts(managedShop.id));
       showToast('Product added to your catalog');
     } catch (error) {
@@ -71,7 +72,7 @@ export function ShopsPage({ shops, showToast, onCreateShop }: ShopsPageProps) {
     }
   };
 
-  const handleUpdateProduct = async (product: ProductItem) => {
+  const handleUpdateProduct = async (product: ProductItem, files?: File[], removedImageIds?: number[]) => {
     if (!managedShop) return;
     try {
       await updateProduct(product.id, {
@@ -82,6 +83,8 @@ export function ShopsPage({ shops, showToast, onCreateShop }: ShopsPageProps) {
         stock_qty: product.stock_qty,
         attributes: product.attributes,
       }, managedShop.id);
+      for (const file of files ?? []) await uploadProductImage(product.id, file, managedShop.id);
+      for (const imageId of removedImageIds ?? []) await deleteProductImage(product.id, imageId, managedShop.id);
       setShopProducts(await getMyProducts(managedShop.id));
       showToast('Product updated');
     } catch (error) {
@@ -202,8 +205,8 @@ export function ShopsPage({ shops, showToast, onCreateShop }: ShopsPageProps) {
           }}
           products={shopProducts}
           onClose={() => setManagedShop(null)}
-          onCreate={(product, file) => void handleCreateProduct(product, file)}
-          onUpdate={(product) => void handleUpdateProduct(product)}
+          onCreate={(product, files) => void handleCreateProduct(product, files)}
+          onUpdate={(product, files, removedImageIds) => void handleUpdateProduct(product, files, removedImageIds)}
           onDelete={(productId) => void handleDeleteProduct(productId)}
           onUploadImage={(productId, file) => void uploadProductImage(productId, file, managedShop.id)}
         />
