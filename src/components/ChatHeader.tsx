@@ -4,6 +4,7 @@ import {
   LayoutDashboardIcon,
   LogOutIcon,
   MoreVerticalIcon,
+  ShieldCheckIcon,
   StoreIcon,
   UserRoundIcon } from
 'lucide-react';
@@ -13,15 +14,17 @@ interface ChatHeaderProps {
   chat: Chat;
   isTyping: boolean;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   hasShop: boolean;
   onOpenShop: () => void;
   onOpenDashboard: () => void;
   onOpenProfile: () => void;
   onOpenHistory: () => void;
+  onOpenAdmin: () => void;
   onLogout: () => void;
 }
 
-export function ChatHeader({ chat, isTyping, isAuthenticated, hasShop, onOpenShop, onOpenDashboard, onOpenProfile, onOpenHistory, onLogout }: ChatHeaderProps) {
+export function ChatHeader({ chat, isTyping, isAuthenticated, isAdmin, hasShop, onOpenShop, onOpenDashboard, onOpenProfile, onOpenHistory, onOpenAdmin, onLogout }: ChatHeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const menuItems = isAuthenticated
@@ -30,6 +33,7 @@ export function ChatHeader({ chat, isTyping, isAuthenticated, hasShop, onOpenSho
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboardIcon },
         { id: 'shop', label: hasShop ? 'My shops' : 'Create shop', icon: StoreIcon },
         { id: 'profile', label: 'Profile', icon: UserRoundIcon },
+        ...(isAdmin ? [{ id: 'admin', label: 'Admin console', icon: ShieldCheckIcon }] : []),
         { id: 'logout', label: 'Log out', icon: LogOutIcon },
       ]
     : [
@@ -49,18 +53,23 @@ export function ChatHeader({ chat, isTyping, isAuthenticated, hasShop, onOpenSho
   }, []);
 
   return (
-    <header className="flex items-center gap-3 border-b border-wa-border bg-wa-panelAlt px-3 py-2 md:px-5">
-      <img
-        src={chat.avatar}
-        alt="ChatGPT avatar"
-        className="h-10 w-10 rounded-full object-cover" />
+    <header className="flex items-center gap-3 bg-wa-panelHeader px-3 py-2.5 md:px-5" style={{borderBottom: '1px solid rgba(42,57,66,0.5)'}}>
+      <div className="relative">
+        <img
+          src={chat.avatar}
+          alt="ChatGPT avatar"
+          className="h-10 w-10 rounded-full object-cover ring-2 ring-wa-header/30" />
+        {chat.online && (
+          <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-wa-green ring-2 ring-wa-panelHeader" />
+        )}
+      </div>
       
       <div className="min-w-0 flex-1">
-        <h1 className="truncate font-medium leading-tight text-wa-textPrimary">
+        <h1 className="truncate font-semibold leading-tight text-wa-textPrimary">
           {chat.name}
         </h1>
         <p className="truncate text-xs text-wa-textSecondary">
-          {isTyping ? <span className="text-wa-teal">typing…</span> : chat.online ? 'online' : chat.about}
+          {isTyping ? <span className="text-wa-header font-medium">typing…</span> : chat.online ? <span className="text-wa-green">online</span> : chat.about}
         </p>
       </div>
       <div ref={menuRef} className="relative">
@@ -70,7 +79,7 @@ export function ChatHeader({ chat, isTyping, isAuthenticated, hasShop, onOpenSho
           aria-label="Open chat menu"
           aria-expanded={isMenuOpen}
           aria-haspopup="menu"
-          className="rounded-full p-2 text-wa-textSecondary hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-wa-green">
+          className="rounded-full p-2 text-wa-textSecondary transition-colors hover:bg-white/5 hover:text-wa-textPrimary focus:outline-none focus:ring-2 focus:ring-wa-header/50">
           
           <MoreVerticalIcon className="h-5 w-5" />
         </button>
@@ -78,7 +87,7 @@ export function ChatHeader({ chat, isTyping, isAuthenticated, hasShop, onOpenSho
         <div
           role="menu"
           aria-label="Chat options"
-          className="absolute right-0 top-11 z-30 w-44 overflow-hidden rounded-xl border border-wa-border bg-wa-panel py-1 shadow-panel">
+          className="scale-enter absolute right-0 top-11 z-30 w-48 overflow-hidden rounded-2xl border border-wa-border bg-wa-panelHeader py-1.5 shadow-panel">
           
             {menuItems.map(({ id, label, icon: Icon }) =>
           <button
@@ -91,11 +100,12 @@ export function ChatHeader({ chat, isTyping, isAuthenticated, hasShop, onOpenSho
                if (id === 'dashboard') onOpenDashboard();
               if (id === 'profile') onOpenProfile();
               if (id === 'history') onOpenHistory();
+              if (id === 'admin') onOpenAdmin();
               if (id === 'logout') onLogout();
             }}
-            className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm text-wa-textPrimary hover:bg-wa-panelAlt focus:bg-wa-panelAlt focus:outline-none">
+            className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-white/5 focus:bg-white/5 focus:outline-none ${id === 'logout' ? 'text-[#ef4444]' : 'text-wa-textPrimary'}`}>
             
-                <Icon className="h-4 w-4 text-wa-textSecondary" />
+                <Icon className={`h-4 w-4 ${id === 'logout' ? 'text-[#ef4444]/70' : 'text-wa-header'}`} />
                 {label}
               </button>
           )}

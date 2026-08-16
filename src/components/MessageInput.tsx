@@ -51,18 +51,18 @@ export function MessageInput({ mode, onSend }: MessageInputProps) {
   };
 
   return (
-    <div className={`w-full px-3 md:px-6 ${mode === 'conversation' ? 'pb-4 pt-2 md:pb-6' : ''}`}>
-      <div className="mx-auto max-w-3xl rounded-[24px] border border-black/5 bg-wa-panel px-2 py-2 shadow-panel">
+    <div className={`w-full px-3 md:px-6 ${mode === 'conversation' ? 'pb-4 pt-2 md:pb-6' : 'mt-6'}`}>
+      <div className="mx-auto max-w-3xl rounded-2xl border border-wa-border bg-wa-panelHeader px-2 py-2 shadow-panel transition-shadow focus-within:shadow-glow">
         {attachment &&
-        <div className="mx-2 mb-2 flex items-center gap-3 rounded-xl bg-wa-panelAlt px-3 py-2">
+        <div className="mx-2 mb-2 flex items-center gap-3 rounded-xl bg-wa-panel px-3 py-2" style={{border: '1px solid rgba(42,57,66,0.5)'}}>
             {attachment.mimeType.startsWith('image/') ?
           <img
             src={attachment.url}
             alt={`Preview of ${attachment.name}`}
-            className="h-14 w-14 shrink-0 rounded-lg object-cover" /> :
+            className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-wa-border" /> :
 
 
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-wa-header/10 text-wa-header">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-wa-header/15 text-wa-header">
                 <FileIcon className="h-5 w-5" />
               </div>
           }
@@ -74,7 +74,7 @@ export function MessageInput({ mode, onSend }: MessageInputProps) {
             type="button"
             onClick={clearAttachment}
             aria-label="Remove selected file"
-            className="rounded-full p-1.5 text-wa-textSecondary hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-wa-green">
+            className="rounded-full p-1.5 text-wa-textSecondary transition-colors hover:bg-white/5 hover:text-wa-textPrimary focus:outline-none focus:ring-2 focus:ring-wa-header">
             
               <XIcon className="h-4 w-4" />
             </button>
@@ -92,7 +92,7 @@ export function MessageInput({ mode, onSend }: MessageInputProps) {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             aria-label="Choose a file"
-            className="mb-0.5 shrink-0 rounded-full p-2 text-wa-textSecondary hover:bg-wa-panelAlt focus:outline-none focus:ring-2 focus:ring-wa-green">
+            className="mb-0.5 shrink-0 rounded-full p-2 text-wa-textSecondary transition-colors hover:bg-white/5 hover:text-wa-header focus:outline-none focus:ring-2 focus:ring-wa-header">
             
             <PaperclipIcon className="h-5 w-5" />
           </button>
@@ -101,16 +101,17 @@ export function MessageInput({ mode, onSend }: MessageInputProps) {
             onChange={(event) => setValue(event.target.value)}
             onKeyDown={handleKeyDown}
             rows={1}
-            placeholder={attachment ? 'Add a caption (optional)' : 'Ask anything'}
+            placeholder={attachment ? 'Add a caption (optional)' : 'Ask anything…'}
             aria-label={attachment ? 'Optional attachment caption' : 'Message ChatGPT'}
-            className="wa-scroll max-h-32 min-h-[40px] flex-1 resize-none bg-transparent py-2 text-sm leading-6 text-wa-textPrimary placeholder:text-wa-textSecondary focus:outline-none" />
+            className="wa-scroll max-h-32 min-h-[40px] flex-1 resize-none bg-transparent py-2 text-sm leading-6 text-wa-textPrimary placeholder:text-wa-textSecondary/60 focus:outline-none" />
           
           <button
             type="button"
             onClick={handleSend}
             disabled={!canSend}
             aria-label="Send message"
-            className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-wa-header text-white transition-colors hover:bg-wa-headerHover focus:outline-none focus:ring-2 focus:ring-wa-green focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-wa-textSecondary/40">
+            className="btn-gradient mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition-all focus:outline-none focus:ring-2 focus:ring-wa-header focus:ring-offset-2 focus:ring-offset-wa-panelHeader disabled:cursor-not-allowed disabled:opacity-30 disabled:shadow-none"
+            style={!canSend ? {background: 'rgba(134, 150, 160, 0.3)'} : {}}>
             
             <SendIcon className="h-[18px] w-[18px]" />
           </button>

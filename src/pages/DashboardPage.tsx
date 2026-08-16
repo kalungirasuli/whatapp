@@ -52,7 +52,7 @@ export function DashboardPage({ shops, onCreateShop }: DashboardPageProps) {
   const showPicker = !shopId && shops.length > 1;
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-wa-panelAlt">
+    <div className="flex h-full w-full min-w-0 flex-1 flex-col bg-wa-panelAlt">
       <header className="flex shrink-0 items-center gap-3 border-b border-wa-border bg-wa-panel px-4 py-3 shadow-sm md:px-5">
         <button
           type="button"

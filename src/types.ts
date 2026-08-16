@@ -287,3 +287,214 @@ export interface HistoryEntry {
   query: string;
   ts: number;
 }
+
+/* ---- Admin domain types ---- */
+
+export interface AdminUserItem {
+  id: number;
+  phone: string;
+  name: string | null;
+  email?: string | null;
+  role: string;
+  is_verified: boolean;
+  is_banned: boolean;
+  created_at: string;
+  last_active_at?: string;
+}
+
+export interface AdminUserDetail extends AdminUserItem {
+  interests_count: number;
+  interactions_count: number;
+  merchants: Array<{
+    id: number;
+    business_name: string;
+    category: string;
+    status: string;
+  }>;
+}
+
+export interface AdminUserPage {
+  total: number;
+  page: number;
+  size: number;
+  users: AdminUserItem[];
+}
+
+export interface AdminMerchantItem {
+  id: number;
+  phone_number: string;
+  business_name: string;
+  category: string;
+  status: string;
+  created_at: string;
+  product_count: number;
+  interest_count: number;
+}
+
+export interface AdminMerchantPage {
+  total: number;
+  page: number;
+  size: number;
+  merchants: AdminMerchantItem[];
+}
+
+export interface AdminProductItem {
+  id: number;
+  merchant_id: number;
+  merchant_name?: string | null;
+  name: string;
+  brand: string | null;
+  category: string;
+  price: number;
+  currency: string;
+  stock_qty: number;
+  status: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface AdminProductPage {
+  total: number;
+  page: number;
+  size: number;
+  products: AdminProductItem[];
+}
+
+export interface AdminMerchantDetail {
+  id: number;
+  phone_number: string;
+  business_name: string;
+  category: string;
+  location_lat: number | null;
+  location_lng: number | null;
+  status: string;
+  created_at: string;
+  product_count: number;
+  interest_count: number;
+  products: AdminProductItem[];
+  interests: Array<{
+    id: number;
+    buyer_phone: string;
+    product_id: number;
+    result_code: string | null;
+    status: string;
+    created_at: string;
+  }>;
+}
+
+export interface AdminProductDetail extends AdminProductItem {
+  attributes: Record<string, unknown>;
+  interest_count: number;
+  images: Array<{ id: number; storage_url: string; is_primary: boolean }>;
+}
+
+export interface AdminInteractionItem {
+  id: number;
+  user_id: number | null;
+  phone_number: string;
+  correlation_id?: string | null;
+  user_message_type: string;
+  user_text: string | null;
+  image_count: number;
+  image_urls: string[];
+  image_description: string | null;
+  nlu_intents: Array<Record<string, unknown>>;
+  text_topic?: string | null;
+  text_family?: string | null;
+  image_family?: string | null;
+  reply_type: string | null;
+  response_text: string | null;
+  result_code: string | null;
+  follow_up?: unknown;
+  top_results: Array<Record<string, unknown>>;
+  latency_ms: number | null;
+  created_at: string;
+}
+
+export interface AdminInteractionPage {
+  total: number;
+  page: number;
+  size: number;
+  interactions: AdminInteractionItem[];
+}
+
+export interface AdminInterestItem {
+  id: number;
+  buyer_phone: string;
+  result_code: string | null;
+  status: string;
+  created_at: string;
+  search_images: string[];
+  product: {
+    id: number;
+    name: string;
+    price: number;
+    currency: string;
+    category: string;
+  } | null;
+  merchant: {
+    id: number;
+    business_name: string;
+    phone_number: string;
+  } | null;
+}
+
+export interface AdminInterestPage {
+  total: number;
+  page: number;
+  size: number;
+  interests: AdminInterestItem[];
+}
+
+export interface AdminOverview {
+  users: { total: number; admins: number; banned: number };
+  merchants: { total: number; approved: number; suspended: number; banned: number };
+  products: { total: number; active: number; inactive: number; pending_moderation: number };
+  buyers: { total: number; banned: number };
+  interests: { total: number; sent: number; responded: number };
+  messages: { total: number };
+  interactions: { total: number };
+  recent_users: Array<Pick<AdminUserItem, 'id' | 'phone' | 'name' | 'role' | 'is_banned' | 'created_at'>>;
+  recent_merchants: Array<{
+    id: number;
+    business_name: string;
+    phone_number: string;
+    category: string;
+    status: string;
+    created_at: string;
+  }>;
+  recent_interactions: Array<{
+    id: number;
+    phone_number: string;
+    user_message_type: string;
+    user_text: string | null;
+    reply_type: string | null;
+    response_text: string | null;
+    latency_ms: number | null;
+    created_at: string;
+  }>;
+  recent_interests: Array<{
+    id: number;
+    buyer_phone: string;
+    status: string;
+    result_code: string | null;
+    product_name: string | null;
+    created_at: string;
+  }>;
+}
+
+export interface AdminAnalytics {
+  period_days: number;
+  summary: {
+    interactions: number;
+    interests: number;
+    unique_buyers: number;
+    unique_merchants_contacted: number;
+    result_codes_issued: number;
+    average_latency_ms: number | null;
+  };
+  timeline: Array<{ date: string; interactions: number; interests: number; conversations: number }>;
+  top_merchants: Array<{ id: number; business_name: string; category: string; status: string; interests: number }>;
+  top_categories: Array<{ category: string; count: number }>;
+  reply_types: Array<{ type: string; count: number }>;
+}

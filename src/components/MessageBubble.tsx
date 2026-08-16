@@ -106,7 +106,7 @@ export function MessageBubble({ message, interestedIds, onFollowUp, onInterest, 
             setSelectedNumber(number);
             void copyText(number);
           }}
-          className="rounded px-0.5 font-medium text-wa-teal underline decoration-wa-teal/40 underline-offset-2 hover:bg-wa-green/15 focus:outline-none focus:ring-2 focus:ring-wa-green"
+          className="rounded px-0.5 font-medium text-wa-header underline decoration-wa-header/40 underline-offset-2 hover:bg-wa-header/15 focus:outline-none focus:ring-2 focus:ring-wa-header"
           title="Copy number">
           
           {number}
@@ -129,21 +129,21 @@ export function MessageBubble({ message, interestedIds, onFollowUp, onInterest, 
       onClick={() => setIsMenuOpen((current) => !current)}
       aria-label="Message options"
       aria-expanded={isMenuOpen}
-      className="rounded-full border border-wa-border bg-wa-panel p-1.5 text-wa-textSecondary shadow-sm hover:bg-wa-panelAlt focus:outline-none focus:ring-2 focus:ring-wa-green">
+      className="rounded-full border border-wa-border bg-wa-panelHeader p-1.5 text-wa-textSecondary shadow-sm transition-colors hover:bg-wa-cardHover focus:outline-none focus:ring-2 focus:ring-wa-header">
       
         <MoreHorizontalIcon className="h-4 w-4" />
       </button>
       {isMenuOpen &&
-    <div className={`absolute top-8 z-30 w-28 overflow-hidden rounded-lg border border-wa-border bg-wa-panel py-1 shadow-panel ${isUser ? 'left-0' : 'right-0'}`}>
+    <div className={`scale-enter absolute top-8 z-30 w-28 overflow-hidden rounded-xl border border-wa-border bg-wa-panelHeader py-1 shadow-panel ${isUser ? 'left-0' : 'right-0'}`}>
           <button
         type="button"
         onClick={() => {
           void copyText(copyableText);
           setIsMenuOpen(false);
         }}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-wa-textPrimary hover:bg-wa-panelAlt focus:bg-wa-panelAlt focus:outline-none">
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-wa-textPrimary transition-colors hover:bg-white/5 focus:bg-white/5 focus:outline-none">
         
-            <CopyIcon className="h-3.5 w-3.5" />
+            <CopyIcon className="h-3.5 w-3.5 text-wa-header" />
             Copy
           </button>
         </div>
@@ -159,29 +159,31 @@ export function MessageBubble({ message, interestedIds, onFollowUp, onInterest, 
       {isUser && isActive && actionMenu}
       <div
         onClick={() => setIsActive(true)}
-        className={`relative max-w-[85%] cursor-pointer rounded-lg p-1.5 shadow-bubble sm:max-w-[65%] ${
+        className={`relative max-w-[85%] cursor-pointer rounded-xl p-2 shadow-bubble sm:max-w-[65%] ${
         isUser
           ? isFailed
-            ? 'rounded-tr-none border border-red-300 bg-[#fef2f2]'
-            : 'rounded-tr-none bg-wa-sent'
-          : 'rounded-tl-none bg-wa-received'
-        }`}>
+            ? 'rounded-tr-sm border border-red-500/30 bg-red-900/20'
+            : 'rounded-tr-sm bg-wa-sent'
+          : 'rounded-tl-sm bg-wa-received'
+        }`}
+        style={!isUser ? {border: '1px solid rgba(42,57,66,0.3)'} : {}}>
         
         <span
           aria-hidden="true"
           className={`absolute top-0 h-3 w-3 ${
           isUser ?
-          '-right-1.5 bg-wa-sent [clip-path:polygon(0_0,0_100%,100%_0)]' :
-          '-left-1.5 bg-wa-received [clip-path:polygon(100%_0,0_0,100%_100%)]'}`
-          } />
+          '-right-1.5 [clip-path:polygon(0_0,0_100%,100%_0)]' :
+          '-left-1.5 [clip-path:polygon(100%_0,0_0,100%_100%)]'}`
+          }
+          style={{background: isUser ? '#005c4b' : '#202c33'}} />
         
 
         {message.imageUrl ?
-        <figure className="overflow-hidden rounded-md">
+        <figure className="overflow-hidden rounded-lg">
             <img
             src={message.imageUrl}
             alt={message.imageCaption ?? 'Shared image'}
-            className="max-h-80 w-full rounded-md object-contain bg-gray-50"
+            className="max-h-80 w-full rounded-lg object-contain bg-black/20"
             loading="lazy" />
             {message.imageCaption &&
           <figcaption className="px-1.5 pt-1.5 text-sm text-wa-textPrimary">
@@ -189,7 +191,7 @@ export function MessageBubble({ message, interestedIds, onFollowUp, onInterest, 
               </figcaption>
           }
           </figure> : message.imageCaption ?
-        <div className="mx-1.5 my-1 flex items-center gap-2 rounded-lg bg-black/[0.04] px-3 py-2 text-sm text-wa-textSecondary">
+        <div className="mx-1.5 my-1 flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm text-wa-textSecondary">
             📷 {message.imageCaption}
           </div> : null
         }
@@ -198,9 +200,9 @@ export function MessageBubble({ message, interestedIds, onFollowUp, onInterest, 
         <a
           href={message.attachment.url}
           download={message.attachment.name}
-          className="mx-1 mb-1 flex min-w-[220px] items-center gap-3 rounded-md bg-black/[0.04] px-3 py-2.5 text-left hover:bg-black/[0.07] focus:outline-none focus:ring-2 focus:ring-wa-green">
+          className="mx-1 mb-1 flex min-w-[220px] items-center gap-3 rounded-lg bg-white/5 px-3 py-2.5 text-left transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-wa-header">
           
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-wa-header/10 text-wa-header">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-wa-header/15 text-wa-header">
               <FileTextIcon className="h-5 w-5" />
             </span>
             <span className="min-w-0 flex-1">
@@ -221,8 +223,8 @@ export function MessageBubble({ message, interestedIds, onFollowUp, onInterest, 
         }
 
         {isFailed && (
-          <div className="mt-3 rounded-lg border border-red-200 bg-[#fff1f2] px-3 py-2 text-sm text-[#991b1b]">
-            <div className="flex items-center gap-2 font-semibold text-[#b91c1c]">
+          <div className="mt-3 rounded-lg border border-red-500/20 bg-red-900/20 px-3 py-2 text-sm text-red-300">
+            <div className="flex items-center gap-2 font-semibold text-red-400">
               <AlertCircleIcon className="h-4 w-4" />
               Failed to send
             </div>
@@ -230,7 +232,7 @@ export function MessageBubble({ message, interestedIds, onFollowUp, onInterest, 
               <button
                 type="button"
                 onClick={() => onResend(message.id)}
-                className="rounded-full bg-[#dc2626] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#b91c1c] focus:outline-none focus:ring-2 focus:ring-[#fca5a5]">
+                className="rounded-full bg-red-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-400 focus:outline-none focus:ring-2 focus:ring-red-400/50">
                 Retry
               </button>
             </div>
@@ -248,18 +250,18 @@ export function MessageBubble({ message, interestedIds, onFollowUp, onInterest, 
         }
 
         <div className="flex items-center justify-end gap-1 px-1.5 pt-0.5">
-          <span className="text-[11px] text-wa-textSecondary">{message.timestamp}</span>
+          <span className="text-[11px] text-wa-textSecondary/70">{message.timestamp}</span>
           {isUser && <Ticks status={message.status} />}
         </div>
 
         {selectedNumber &&
-        <div className="absolute bottom-full left-0 z-20 mb-2 flex min-w-max items-center gap-2 rounded-lg bg-wa-textPrimary px-3 py-2 text-xs text-white shadow-panel">
+        <div className="scale-enter absolute bottom-full left-0 z-20 mb-2 flex min-w-max items-center gap-2 rounded-xl bg-wa-panelHeader px-3 py-2 text-xs text-wa-textPrimary shadow-panel" style={{border: '1px solid rgba(42,57,66,0.5)'}}>
             <span>{feedback === 'copied' ? 'Number copied' : feedback === 'opened' ? 'Opening WhatsApp' : selectedNumber}</span>
             {canOpenWhatsApp &&
           <button
             type="button"
             onClick={() => openWhatsApp(selectedNumber)}
-            className="flex items-center gap-1 rounded bg-white/15 px-2 py-1 font-medium hover:bg-white/25 focus:outline-none focus:ring-1 focus:ring-white">
+            className="flex items-center gap-1 rounded-lg bg-wa-header/20 px-2 py-1 font-medium text-wa-header transition-colors hover:bg-wa-header/30 focus:outline-none focus:ring-1 focus:ring-wa-header">
             
                 WhatsApp
                 <ExternalLinkIcon className="h-3 w-3" />
@@ -268,7 +270,7 @@ export function MessageBubble({ message, interestedIds, onFollowUp, onInterest, 
           </div>
         }
         {feedback && !selectedNumber &&
-        <div role="status" className="absolute bottom-full right-0 z-20 mb-2 rounded-lg bg-wa-textPrimary px-3 py-2 text-xs text-white shadow-panel">
+        <div role="status" className="scale-enter absolute bottom-full right-0 z-20 mb-2 rounded-xl bg-wa-panelHeader px-3 py-2 text-xs text-wa-textPrimary shadow-panel" style={{border: '1px solid rgba(42,57,66,0.5)'}}>
             {feedback === 'copied' ? 'Copied to clipboard' : 'Opening WhatsApp'}
           </div>
         }

@@ -1,6 +1,18 @@
 import {
   AuthSession,
   AuthUser,
+  AdminAnalytics,
+  AdminInteractionItem,
+  AdminInteractionPage,
+  AdminInterestPage,
+  AdminMerchantDetail,
+  AdminMerchantPage,
+  AdminOverview,
+  AdminProductDetail,
+  AdminProductPage,
+  AdminUserDetail,
+  AdminUserItem,
+  AdminUserPage,
   AnalyticsRecommendation,
   ChatReply,
   Conversation,
@@ -373,4 +385,96 @@ export async function lookupResultCode(code: string): Promise<{
 
 export async function getConversations(): Promise<{ conversations: Conversation[] }> {
   return request('/api/chat/conversations');
+}
+
+/* ---- Admin ---- */
+
+type ListParams = {
+  q?: string;
+  role?: string;
+  status?: string;
+  category?: string;
+  result_code?: string;
+  days?: number;
+  merchant_id?: number;
+  page?: number;
+  size?: number;
+};
+
+export function getAdminOverview(): Promise<AdminOverview> {
+  return request('/api/admin/overview');
+}
+
+export function listAdminUsers(params: ListParams = {}): Promise<AdminUserPage> {
+  return request('/api/admin/users', { params });
+}
+
+export function getAdminUser(userId: number): Promise<AdminUserDetail> {
+  return request(`/api/admin/users/${userId}`);
+}
+
+export function setAdminUserRole(userId: number, role: string): Promise<{ message: string; role: string }> {
+  return request(`/api/admin/users/${userId}/role`, { method: 'POST', params: { role } });
+}
+
+export function banAdminUser(userId: number, reason?: string): Promise<{ message: string; is_banned: boolean }> {
+  return request(`/api/admin/users/${userId}/ban`, { method: 'POST', params: { reason } });
+}
+
+export function unbanAdminUser(userId: number): Promise<{ message: string; is_banned: boolean }> {
+  return request(`/api/admin/users/${userId}/unban`, { method: 'POST' });
+}
+
+export function listAdminMerchants(params: ListParams = {}): Promise<AdminMerchantPage> {
+  return request('/api/admin/merchants', { params });
+}
+
+export function getAdminMerchant(merchantId: number): Promise<AdminMerchantDetail> {
+  return request(`/api/admin/merchants/${merchantId}`);
+}
+
+export function adminMerchantAction(
+  merchantId: number,
+  action: 'suspend' | 'reactivate' | 'ban',
+): Promise<{ message: string; status: string }> {
+  return request(`/api/admin/merchants/${merchantId}/${action}`, { method: 'POST' });
+}
+
+export function listAdminProducts(params: ListParams = {}): Promise<AdminProductPage> {
+  return request('/api/admin/products', { params });
+}
+
+export function getAdminProduct(productId: number): Promise<AdminProductDetail> {
+  return request(`/api/admin/products/${productId}`);
+}
+
+export function adminProductAction(
+  productId: number,
+  action: 'deactivate' | 'reactivate',
+): Promise<{ message: string; status: string }> {
+  return request(`/api/admin/products/${productId}/${action}`, { method: 'POST' });
+}
+
+export function listAdminInteractions(params: ListParams = {}): Promise<AdminInteractionPage> {
+  return request('/api/admin/interactions', { params });
+}
+
+export function getAdminInteraction(interactionId: number): Promise<AdminInteractionItem> {
+  return request(`/api/admin/interactions/${interactionId}`);
+}
+
+export function listAdminInterests(params: ListParams = {}): Promise<AdminInterestPage> {
+  return request('/api/admin/interests', { params });
+}
+
+export function getAdminAnalytics(days = 14): Promise<AdminAnalytics> {
+  return request('/api/admin/analytics', { params: { days } });
+}
+
+export function bootstrapAdmin(phone: string, name?: string): Promise<{ message: string; id: number; phone?: string }> {
+  return request('/api/admin/bootstrap', { method: 'POST', params: { phone, name } });
+}
+
+export function listAdminAccounts(): Promise<{ admins: Array<Pick<AdminUserItem, 'id' | 'phone' | 'name' | 'email' | 'is_verified' | 'is_banned' | 'created_at'>> }> {
+  return request('/api/admin/accounts');
 }

@@ -7,6 +7,14 @@ import { ShopRegistrationForm } from './components/ShopRegistrationForm';
 import { AuthGate } from './components/AuthGate';
 import { ShopsPage } from './pages/ShopsPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { AdminLayout } from './pages/admin/AdminLayout';
+import { AdminOverview } from './pages/admin/AdminOverview';
+import { AdminUsers } from './pages/admin/AdminUsers';
+import { AdminMerchants } from './pages/admin/AdminMerchants';
+import { AdminInteractions } from './pages/admin/AdminInteractions';
+import { AdminInterests } from './pages/admin/AdminInterests';
+import { AdminAnalytics } from './pages/admin/AdminAnalytics';
+import { AdminAccounts } from './pages/admin/AdminAccounts';
 import {
   Attachment,
   AuthSession,
@@ -416,6 +424,14 @@ function Shell() {
     setIsShopFormOpen(true);
   };
 
+  const handleOpenAdmin = () => {
+    if (!session || !user || user.role !== 'admin') {
+      showToast('Admin access required. Sign in with an admin account.');
+      return;
+    }
+    navigate('/admin');
+  };
+
   const handleOpenProfile = () => {
     if (!session || !user) {
       requireAccount('open your profile', 'profile');
@@ -531,7 +547,7 @@ function Shell() {
   return (
     <main className="flex h-full w-full flex-col bg-wa-panelAlt">
       <div className="hidden h-[19px] w-full shrink-0 bg-wa-header md:block" />
-      <div className="min-h-0 flex-1 md:mx-auto md:flex md:w-full md:max-w-[1280px] md:shadow-panel">
+      <div className="min-h-0 flex-1 md:mx-auto md:flex md:w-full md:max-w-[1600px] md:shadow-panel">
         {deferredInstallPrompt && !isAppInstalled && (
           <div className="mx-3 mb-3 rounded-2xl border border-wa-border bg-wa-panel px-4 py-3 text-sm text-wa-textPrimary shadow-sm md:mx-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -564,6 +580,7 @@ function Shell() {
                 chat={chat}
                 isTyping={isTyping}
                 isAuthenticated={Boolean(session && user)}
+                isAdmin={user?.role === 'admin'}
                 hasShop={shops.length > 0}
                 interestedIds={new Set(interests.map((item) => item.product.id))}
                 onSend={handleSend}
@@ -574,6 +591,7 @@ function Shell() {
                 onOpenDashboard={handleOpenDashboard}
                 onOpenProfile={handleOpenProfile}
                 onOpenHistory={() => void openHistory()}
+                onOpenAdmin={handleOpenAdmin}
                 onLogout={handleLogout}
               />
             }
@@ -581,6 +599,15 @@ function Shell() {
           <Route path="/shops" element={<ShopsPage shops={shops} showToast={showToast} onCreateShop={handleCreateShop} />} />
           <Route path="/dashboard" element={<DashboardPage shops={shops} onCreateShop={handleCreateShop} />} />
           <Route path="/dashboard/:shopId" element={<DashboardPage shops={shops} onCreateShop={handleCreateShop} />} />
+          <Route path="/admin" element={<AdminLayout user={user} onLogout={handleLogout} />}>
+            <Route index element={<AdminOverview />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="merchants" element={<AdminMerchants />} />
+            <Route path="interactions" element={<AdminInteractions />} />
+            <Route path="interests" element={<AdminInterests />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
+            <Route path="accounts" element={<AdminAccounts />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
